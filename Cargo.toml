@@ -1,0 +1,9 @@
+[package]
+name = "phantom_relay"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tun = "0.7"
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
