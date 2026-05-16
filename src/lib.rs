@@ -1,7 +1,5 @@
 pub mod cli;
 pub mod config;
-pub mod tun;
-pub mod packet;
 pub mod relay;
 pub mod routing;
 pub mod runtime;
@@ -10,3 +8,6 @@ pub mod monitor;
 pub mod platform;
 pub mod utils;
 pub mod errors;
+pub mod redirect;
+pub mod system;
+pub mod dns;

@@ -1,16 +1,14 @@
 use anyhow::Result;
 
-use phantom_relay::tun::device::create_tun;
-use phantom_relay::tun::reader::read_packets;
+use phantom_relay::runtime::{shutdown::shutdown, signal::wait_for_shutdown, startup::startup};
 
-fn main() -> Result<()>{
+#[tokio::main]
+async fn main() -> Result<()> {
     println!("Starting phantom-relay...");
 
-    let dev = create_tun()?;
-
-    println!("waiting for packets...");
-
-    read_packets(dev)?;
+    startup(9001, 9002).await?;
+    wait_for_shutdown().await?;
+    shutdown()?;
 
     Ok(())
 
