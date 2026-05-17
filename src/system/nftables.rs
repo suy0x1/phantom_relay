@@ -1,11 +1,17 @@
 use std::process::Command;
+use std::sync::Arc;
+use crate::monitor::bus::Bus;
+use crate::monitor::events::Event::NetworkChange;
+use chrono::Local;
 
 use anyhow::Result;
 
-pub fn network_setup(proxy_port: u16, dns_port: u16) -> Result<()> {
+pub fn network_setup(proxy_port: u16, dns_port: u16, bus: Arc<Bus>) -> Result<()> {
+
     Command::new("nft")
         .args(["add", "table", "inet", "phantomrelay"])
         .status()?;
+    bus.emit(NetworkChange { change: "created table phantomrelay".to_string(), timestamp: Local::now().format("%H:%M:%S").to_string().to_string() })?;
 
     Command::new("nft")
         .args([
@@ -25,6 +31,7 @@ pub fn network_setup(proxy_port: u16, dns_port: u16) -> Result<()> {
             "}",
         ])
         .status()?;
+    bus.emit(NetworkChange { change: "created NAT rule".to_string(), timestamp: Local::now().format("%H:%M:%S").to_string().to_string() })?;
 
     Command::new("nft")
         .args([
@@ -39,6 +46,7 @@ pub fn network_setup(proxy_port: u16, dns_port: u16) -> Result<()> {
             "reject",
         ])
         .status()?;
+    bus.emit(NetworkChange { change: "blocked QUIC".to_string(), timestamp: Local::now().format("%H:%M:%S").to_string().to_string() })?;
 
     Command::new("nft")
         .args([
@@ -53,6 +61,7 @@ pub fn network_setup(proxy_port: u16, dns_port: u16) -> Result<()> {
             "return",
         ])
         .status()?;
+    bus.emit(NetworkChange { change: "ignored connetions from localhost".to_string(), timestamp: Local::now().format("%H:%M:%S").to_string().to_string() })?;
 
     Command::new("nft")
         .args([
@@ -69,6 +78,7 @@ pub fn network_setup(proxy_port: u16, dns_port: u16) -> Result<()> {
             &format!(":{}", dns_port),
         ])
         .status()?;
+    bus.emit(NetworkChange { change: "redirected DNS".to_string(), timestamp: Local::now().format("%H:%M:%S").to_string().to_string() })?;
 
     Command::new("nft")
         .args([
@@ -86,14 +96,16 @@ pub fn network_setup(proxy_port: u16, dns_port: u16) -> Result<()> {
             &format!(":{}", proxy_port),
         ])
         .status()?;
+    bus.emit(NetworkChange { change: "redirected TCP".to_string(), timestamp: Local::now().format("%H:%M:%S").to_string().to_string() })?;
 
     Ok(())
 }
 
-pub fn cleanup() -> Result<()> {
+pub fn cleanup(bus: Arc<Bus>) -> Result<()> {
     Command::new("nft")
         .args(["delete", "table", "inet", "phantomrelay"])
         .status()?;
+    bus.emit(NetworkChange { change: "deleted table phantomrelay".to_string(), timestamp: Local::now().format("%H:%M:%S").to_string().to_string() })?;
 
     Ok(())
 }

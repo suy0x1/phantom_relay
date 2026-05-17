@@ -1,24 +1,29 @@
+use crate::monitor::bus::Bus;
+use crate::monitor::events::Event::{Error, ServiceStartup};
 use crate::redirect::relay::handle_connection;
 use crate::relay::manager::ConnectionManager;
 use anyhow::Result;
 use std::sync::Arc;
+use chrono::Local;
 use tokio::net::TcpListener;
 
-pub async fn start_listener(conn_map: Arc<ConnectionManager>) -> Result<()> {
+pub async fn start_listener(conn_map: Arc<ConnectionManager>, bus: Arc<Bus>) -> Result<()> {
     let listener = TcpListener::bind("127.0.0.1:9001").await?;
-    println!("started TCP listener");
+    bus.emit(ServiceStartup {
+        service_name: "TCP Proxy Server".to_string(),
+        port: 9001,
+        timestamp: Local::now().format("%H:%M:%S").to_string().to_string(),
+    })?;
 
     loop {
-        let (stream, addr) = listener.accept().await?;
+        let (stream, _) = listener.accept().await?;
 
-        println!("redirected conn from {}", addr);
         let conn_map = conn_map.clone();
+        let bus_clone = bus.clone();
         tokio::spawn(async move {
-            if let Err(e) = handle_connection(stream, conn_map).await {
-                println!("relay error {}", e);
+            if let Err(e) = handle_connection(stream, conn_map, bus_clone.clone()).await {
+                let _ = bus_clone.emit(Error{err:format!("{}", e), timestamp: Local::now().format("%H:%M:%S").to_string().to_string()});
             }
         });
     }
 }
-
-// sudo iptables -t nat -F
