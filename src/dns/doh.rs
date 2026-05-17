@@ -2,8 +2,10 @@ use anyhow::Result;
 use reqwest::Client;
 use std::sync::LazyLock;
 use std::time::{Duration, Instant};
+use tokio::sync::Notify;
 
-use crate::dns::cache::CacheEntry;
+use crate::dns::cache::{CacheEntry, CacheKey};
+use crate::dns::parse::{extract_cache_key, extract_ips, extract_min_ttl};
 use dashmap::DashMap;
 use std::sync::Arc;
 
@@ -17,9 +19,15 @@ static DOH_CLIENT: LazyLock<Client> = LazyLock::new(|| {
 
 pub async fn forward_dns(
     packet: Vec<u8>,
-    cache: Arc<DashMap<Vec<u8>, CacheEntry>>,
+    cache: Arc<DashMap<CacheKey, CacheEntry>>,
+    inflight: Arc<DashMap<CacheKey, Arc<Notify>>>,
+    notify: Arc<Notify>,
 ) -> Result<Vec<u8>> {
-    let key = packet[2..].to_vec();
+    let key =
+        extract_cache_key(&packet).ok_or_else(|| anyhow::anyhow!("failed to extract cache key"))?;
+    let ttl = extract_min_ttl(&packet[0..]).unwrap_or(90);
+    let ips = extract_ips(&packet[0..]);
+
     let response = DOH_CLIENT
         .post("https://cloudflare-dns.com/dns-query")
         .header("content-type", "application/dns-message")
@@ -27,15 +35,19 @@ pub async fn forward_dns(
         .body(packet)
         .send()
         .await?;
-    let res_ret = response.bytes().await?.to_vec();
-    let res = res_ret.clone();
+
+    let response_bytes = response.bytes().await?.to_vec();
 
     let value = CacheEntry {
-        response: res,
-        expires_at: Instant::now() + Duration::from_secs(90),
+        response: response_bytes.clone(),
+        expires_at: Instant::now() + Duration::from_secs(ttl as u64),
+        resolved_ips: ips,
+        hits: 0.into(),
     };
 
-    cache.insert(key, value);
+    cache.insert(key.clone(), value);
+    notify.notify_waiters();
+    inflight.remove(&key);
 
-    Ok(res_ret)
+    Ok(response_bytes)
 }

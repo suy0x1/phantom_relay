@@ -1,7 +1,8 @@
 use anyhow::Result;
 use dashmap::DashMap;
+use tokio::sync::Notify;
 
-use crate::dns::cache::CacheEntry;
+use crate::dns::cache::{CacheEntry, CacheKey};
 use crate::dns::listener::start_dns_listener;
 use crate::monitor::bus::Bus;
 use crate::monitor::events::Event::Error;
@@ -14,7 +15,9 @@ use std::sync::Arc;
 
 pub async fn startup(proxy_port: u16, dns_port: u16, bus: Arc<Bus>) -> Result<()> {
     let conn_map = Arc::new(ConnectionManager::new());
-    let dns_cache: Arc<DashMap<Vec<u8>, CacheEntry>> = Arc::new(DashMap::new());
+    let dns_cache: Arc<DashMap<CacheKey, CacheEntry>> = Arc::new(DashMap::new());
+    let inflight: Arc<DashMap<CacheKey, Arc<Notify>>> = Arc::new(DashMap::new());
+
     let bus_clone = bus.clone();
     tokio::spawn(async move {
         if let Err(e) = start_logger(bus_clone.clone()).await {
@@ -26,8 +29,9 @@ pub async fn startup(proxy_port: u16, dns_port: u16, bus: Arc<Bus>) -> Result<()
 
     let bus_clone = bus.clone();
     let dns_cache = dns_cache.clone();
+    let inflight = inflight.clone();
     tokio::spawn(async move {
-        if let Err(e) = start_dns_listener(dns_cache, bus_clone.clone()).await {
+        if let Err(e) = start_dns_listener(dns_cache, bus_clone.clone(), inflight.clone()).await {
             let _ = bus_clone.emit(Error{err:format!("{}", e), timestamp: Local::now().format("%H:%M:%S").to_string().to_string()});
         }
     });

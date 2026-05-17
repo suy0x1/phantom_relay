@@ -94,7 +94,7 @@ pub async fn start_logger(bus: Arc<Bus>) -> Result<()> {
                     err,
                     timestamp,
                 } => {
-                    println!("[{}][error] {}",timestamp,err);
+                    println!("[{}] [error] {}",timestamp,err);
                 }
             },
 
