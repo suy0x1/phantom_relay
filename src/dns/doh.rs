@@ -27,6 +27,7 @@ pub async fn forward_dns(
         extract_cache_key(&packet).ok_or_else(|| anyhow::anyhow!("failed to extract cache key"))?;
     let ttl = extract_min_ttl(&packet[0..]).unwrap_or(90);
     let ips = extract_ips(&packet[0..]);
+    let rc = packet[3] & 0x0F;
 
     let response = DOH_CLIENT
         .post("https://cloudflare-dns.com/dns-query")
@@ -43,6 +44,7 @@ pub async fn forward_dns(
         expires_at: Instant::now() + Duration::from_secs(ttl as u64),
         resolved_ips: ips,
         hits: 0.into(),
+        rcode: rc,
     };
 
     cache.insert(key.clone(), value);

@@ -53,8 +53,24 @@ pub enum Event {
     },
 
     RoutingDecision,
+
     Error {
         err: String,
         timestamp: String
     },
+
+    DNSCacheCleanup {
+        entries_cleaned: usize,
+        timestamp: String,
+    },
+
+    TaskStartup {
+        task_name: String,
+        timestamp: String,
+    },
+
+    Info {
+        content: String,
+        timestamp: String,
+    }
 }

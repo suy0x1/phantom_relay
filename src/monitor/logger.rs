@@ -96,6 +96,27 @@ pub async fn start_logger(bus: Arc<Bus>) -> Result<()> {
                 } => {
                     println!("[{}] [error] {}",timestamp,err);
                 }
+
+                Event::DNSCacheCleanup {
+                    entries_cleaned,
+                    timestamp,
+                } => {
+                    println!("[{}] [dns] cleared {} expired entries",timestamp,entries_cleaned);
+                }
+
+                Event::TaskStartup {
+                    task_name,
+                    timestamp,
+                } => {
+                    println!("[{}] [task] {} started",timestamp,task_name);
+                }
+
+                Event::Info {
+                    content,
+                    timestamp,
+                } => {
+                    println!("[{}] [info] {} ",timestamp,content);
+                }
             },
 
             Err(broadcast::error::RecvError::Lagged(n)) => {

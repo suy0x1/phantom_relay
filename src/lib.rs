@@ -11,3 +11,4 @@ pub mod errors;
 pub mod redirect;
 pub mod system;
 pub mod dns;
+pub mod metrics;

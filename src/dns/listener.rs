@@ -1,5 +1,6 @@
 use anyhow::Result;
 
+use crate::config::dns::DNSConfig;
 use crate::dns::cache::{CacheEntry, CacheKey};
 use crate::dns::parse::extract_cache_key;
 use crate::monitor::bus::Bus;
@@ -10,26 +11,26 @@ use dashmap::DashMap;
 
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::Arc;
-use std::sync::atomic::AtomicU64;
 use std::time::Instant;
 
 use tokio::net::UdpSocket;
 use tokio::sync::{Notify, Semaphore};
 
 pub async fn start_dns_listener(
+    config: Arc<DNSConfig>,
     cache: Arc<DashMap<CacheKey, CacheEntry>>,
     bus: Arc<Bus>,
     inflight: Arc<DashMap<CacheKey, Arc<Notify>>>,
 ) -> Result<()> {
-    let socket = Arc::new(UdpSocket::bind("127.0.0.1:9002").await?);
+    let socket = Arc::new(UdpSocket::bind(format!("{}:{}",config.host,config.port)).await?);
 
-    let limit = Arc::new(Semaphore::new(100));
+    let limit = Arc::new(Semaphore::new(config.max_parallel_dns_lookups));
 
     let mut buf = [0u8; 4096];
 
     bus.emit(ServiceStartup {
         service_name: "DNS server".to_string(),
-        port: 9002,
+        port: config.port,
         timestamp: Local::now().format("%H:%M:%S").to_string(),
     })?;
 
