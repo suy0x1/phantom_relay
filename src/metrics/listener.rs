@@ -4,7 +4,8 @@ use crate::monitor::events::Event;
 use anyhow::Result;
 use std::sync::Arc;
 use tokio::sync::broadcast;
-use tokio::time::{interval, Duration};
+use tokio::time::{Duration, interval};
+use tokio_util::sync::CancellationToken;
 
 async fn record_metrics(metrics: &mut Metrics, event: &Event) {
     match event {
@@ -72,7 +73,7 @@ async fn print_metrics(metrics: &Metrics) {
     println!();
 }
 
-pub async fn start_metrics(bus: Arc<Bus>) -> Result<()> {
+pub async fn start_metrics(bus: Arc<Bus>, cancel: CancellationToken) -> Result<()> {
     let mut rx = bus.subscribe();
 
     let mut metrics = Metrics::default();
@@ -81,6 +82,11 @@ pub async fn start_metrics(bus: Arc<Bus>) -> Result<()> {
 
     loop {
         tokio::select! {
+
+            _ = cancel.cancelled() => {
+                break;
+            }
+
             _ = ticker.tick() => {
                 print_metrics(&metrics).await;
             }
@@ -88,11 +94,20 @@ pub async fn start_metrics(bus: Arc<Bus>) -> Result<()> {
             result = rx.recv() => {
                 match result {
                     Ok(event) => {
-                        record_metrics(&mut metrics, &event).await;
+                        record_metrics(
+                            &mut metrics,
+                            &event,
+                        )
+                        .await;
                     }
 
-                    Err(broadcast::error::RecvError::Lagged(n)) => {
-                        eprintln!("metrics lagged {} events", n);
+                    Err(
+                        broadcast::error::RecvError::Lagged(n)
+                    ) => {
+                        eprintln!(
+                            "metrics lagged {} events",
+                            n
+                        );
                     }
 
                     Err(e) => {
@@ -102,4 +117,6 @@ pub async fn start_metrics(bus: Arc<Bus>) -> Result<()> {
             }
         }
     }
+
+    Ok(())
 }

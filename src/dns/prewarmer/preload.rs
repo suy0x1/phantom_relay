@@ -3,13 +3,14 @@ use std::sync::Arc;
 use anyhow::Result;
 use dashmap::DashMap;
 use tokio::sync::Notify;
+use tokio_util::sync::CancellationToken;
 
 use crate::config::dns::DNSConfig;
 use crate::dns::cache::{CacheEntry, CacheKey};
 use crate::dns::doh::forward_dns;
 use crate::dns::prewarmer::packet::build_dns_query;
 use crate::monitor::bus::Bus;
-use crate::monitor::events::Event::{TaskStartup, Info};
+use crate::monitor::events::Event::{Info, TaskStartup};
 use chrono::Local;
 
 pub async fn preload_dns_entries(
@@ -17,6 +18,7 @@ pub async fn preload_dns_entries(
     bus: Arc<Bus>,
     cache: Arc<DashMap<CacheKey, CacheEntry>>,
     inflight: Arc<DashMap<CacheKey, Arc<Notify>>>,
+    cancel: CancellationToken,
 ) -> Result<()> {
     let _ = bus.emit(TaskStartup {
         task_name: "DNS Cache Preload".to_string(),
@@ -24,6 +26,10 @@ pub async fn preload_dns_entries(
     });
 
     for domain in &config.prewarm_domains {
+        if cancel.is_cancelled() {
+            break;
+        }
+
         // A record
         let a_packet = build_dns_query(domain, 1);
 
@@ -38,6 +44,10 @@ pub async fn preload_dns_entries(
         inflight.insert(a_key, a_notify.clone());
 
         let _ = forward_dns(a_packet, cache.clone(), inflight.clone(), a_notify).await;
+
+        if cancel.is_cancelled() {
+            break;
+        }
 
         // AAAA record
         let aaaa_packet = build_dns_query(domain, 28);
@@ -54,6 +64,12 @@ pub async fn preload_dns_entries(
 
         let _ = forward_dns(aaaa_packet, cache.clone(), inflight.clone(), aaaa_notify).await;
     }
-    let _ = bus.emit(Info { content: format!("preloaded {} cache entires",cache.len()), timestamp: Local::now().format("%H:%M:%S").to_string()});
+
+    let _ = bus.emit(Info {
+        content: format!("preloaded {} cache entires", cache.len()),
+
+        timestamp: Local::now().format("%H:%M:%S").to_string(),
+    });
+
     Ok(())
 }

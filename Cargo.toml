@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
+tokio-util = "0.7.18"
 anyhow = "1"
 tokio-socks = "0.5"
 async-trait = "0.1"

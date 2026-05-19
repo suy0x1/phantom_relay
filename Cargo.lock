@@ -812,6 +812,7 @@ dependencies = [
  "reqwest",
  "tokio",
  "tokio-socks",
+ "tokio-util",
 ]
 
 [[package]]

@@ -15,14 +15,16 @@ use std::time::Instant;
 
 use tokio::net::UdpSocket;
 use tokio::sync::{Notify, Semaphore};
+use tokio_util::sync::CancellationToken;
 
 pub async fn start_dns_listener(
     config: Arc<DNSConfig>,
     cache: Arc<DashMap<CacheKey, CacheEntry>>,
     bus: Arc<Bus>,
     inflight: Arc<DashMap<CacheKey, Arc<Notify>>>,
+    cancel: CancellationToken,
 ) -> Result<()> {
-    let socket = Arc::new(UdpSocket::bind(format!("{}:{}",config.host,config.port)).await?);
+    let socket = Arc::new(UdpSocket::bind(format!("{}:{}", config.host, config.port)).await?);
 
     let limit = Arc::new(Semaphore::new(config.max_parallel_dns_lookups));
 
@@ -37,16 +39,27 @@ pub async fn start_dns_listener(
     loop {
         let bus_clone = bus.clone();
 
-        let (size, client_addr) = match socket.recv_from(&mut buf).await {
-            Ok(v) => v,
+        let (size, client_addr) = tokio::select! {
 
-            Err(e) => {
-                bus_clone.emit(Error {
-                    err: format!("{}", e),
-                    timestamp: Local::now().format("%H:%M:%S").to_string(),
-                })?;
+            _ = cancel.cancelled() => {
+                break;
+            }
 
-                continue;
+            result = socket.recv_from(&mut buf) => {
+                match result {
+                    Ok(v) => v,
+
+                    Err(e) => {
+                        bus_clone.emit(Error {
+                            err: format!("{}", e),
+                            timestamp: Local::now()
+                                .format("%H:%M:%S")
+                                .to_string(),
+                        })?;
+
+                        continue;
+                    }
+                }
             }
         };
 
@@ -78,6 +91,7 @@ pub async fn start_dns_listener(
                     domain: key.domain.clone(),
                     timestamp: Local::now().format("%H:%M:%S").to_string(),
                 })?;
+
                 x.hits.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
                 let mut res = x.response.clone();
@@ -119,6 +133,7 @@ pub async fn start_dns_listener(
                         domain: key.domain.clone(),
                         timestamp: Local::now().format("%H:%M:%S").to_string(),
                     })?;
+
                     x.hits.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
                     let mut res = x.response.clone();
@@ -198,4 +213,6 @@ pub async fn start_dns_listener(
             }
         });
     }
+
+    Ok(())
 }
