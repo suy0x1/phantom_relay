@@ -6,12 +6,14 @@ use tokio::sync::Notify;
 
 use crate::dns::cache::{CacheEntry, CacheKey};
 use crate::dns::parse::{extract_cache_key, extract_ips, extract_min_ttl};
+use crate::routing::connect::get_dns_proxy;
 use dashmap::DashMap;
 use std::sync::Arc;
 
 static DOH_CLIENT: LazyLock<Client> = LazyLock::new(|| {
+    let proxy = get_dns_proxy();
     Client::builder()
-        .proxy(reqwest::Proxy::https("socks5h://127.0.0.1:9050").expect("valid proxy"))
+        .proxy(reqwest::Proxy::https(proxy).expect("valid proxy"))
         .timeout(Duration::from_secs(3))
         .build()
         .expect("client build failed")

@@ -8,7 +8,7 @@ use phantom_relay::runtime::{shutdown::shutdown, signal::wait_for_shutdown, star
 async fn main() -> Result<()> {
     let bus = Arc::new(Bus::new(128));
 
-    startup(9001, 9002, bus.clone()).await?;
+    startup(bus.clone()).await?;
     wait_for_shutdown().await?;
     shutdown(bus.clone())?;
 

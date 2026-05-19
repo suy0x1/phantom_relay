@@ -1,5 +1,6 @@
 use crate::config::dns::DNSConfig;
 use crate::dns::prewarmer::packet::build_dns_query;
+use crate::dns::parse::extract_cache_key;
 use crate::monitor::bus::Bus;
 use crate::monitor::events::Event::TaskStartup;
 
@@ -34,6 +35,7 @@ pub async fn start_cache_refresh(
             let key = entry.key().clone();
             let hits = entry.hits.load(Ordering::Relaxed) as u64;
             let rcode = entry.rcode.clone();
+            let domain = extract_cache_key(&entry.response[0..]).ok_or_else(|| anyhow::anyhow!("failed to extract cache key"))?.domain;
 
             let remaining = entry.expires_at.saturating_duration_since(now);
 
@@ -46,7 +48,7 @@ pub async fn start_cache_refresh(
             }
 
             if !(config.cache_saturation) {
-                if hits < config.min_prest_hits {
+                if hits < config.min_prest_hits && !config.prewarm_domains.contains(&domain){
                     continue;
                 }
             } 

@@ -1,6 +1,6 @@
 use dashmap::DashMap;
 
-use crate::relay::connection::{ConnectionKey, ProxyConnection};
+use crate::routing::connection::{ConnectionKey, ProxyConnection};
 
 pub struct ConnectionManager {
     pub connections: DashMap<ConnectionKey, ProxyConnection>,

@@ -1,17 +1,18 @@
+use crate::config::tproxy::TProxyConfig;
 use crate::monitor::bus::Bus;
 use crate::monitor::events::Event::{Error, ServiceStartup};
-use crate::redirect::relay::handle_connection;
-use crate::relay::manager::ConnectionManager;
+use crate::tproxy::relay::handle_connection;
+use crate::routing::manager::ConnectionManager;
 use anyhow::Result;
 use std::sync::Arc;
 use chrono::Local;
 use tokio::net::TcpListener;
 
-pub async fn start_listener(conn_map: Arc<ConnectionManager>, bus: Arc<Bus>) -> Result<()> {
-    let listener = TcpListener::bind("127.0.0.1:9001").await?;
+pub async fn start_listener(config: Arc<TProxyConfig>, conn_map: Arc<ConnectionManager>, bus: Arc<Bus>) -> Result<()> {
+    let listener = TcpListener::bind(format!("{}:{}",config.host, config.port)).await?;
     bus.emit(ServiceStartup {
         service_name: "TCP Proxy Server".to_string(),
-        port: 9001,
+        port: config.port,
         timestamp: Local::now().format("%H:%M:%S").to_string().to_string(),
     })?;
 

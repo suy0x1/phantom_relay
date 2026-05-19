@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use tokio::net::TcpStream;
 use tokio_socks::tcp::Socks5Stream;
-use crate::relay::proxy::ProxyProvider;
+use crate::routing::proxy::ProxyProvider;
 
 pub struct Socks5Proxy {
     pub proxy_addr: String,
