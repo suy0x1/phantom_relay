@@ -1,6 +1,7 @@
 use crate::{runtime::context::RuntimeContext, system::network::manager::NetworkManager};
 use anyhow::{Result, anyhow};
 use dashmap::DashMap;
+use serde::{Deserialize, Serialize};
 use std::{future::Future, pin::Pin, sync::Arc};
 use tokio_util::sync::CancellationToken;
 
@@ -16,6 +17,12 @@ use crate::runtime::factories::{
 
 pub type ServiceFn = Arc<dyn Fn(CancellationToken) -> ServiceFuture + Send + Sync>;
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ServiceStatus {
+    pub name: String,
+
+    pub active: bool,
+}
 pub struct RuntimeController {
     pub ctx: Arc<RuntimeContext>,
     pub services: DashMap<String, ServiceHandle>,
@@ -91,12 +98,29 @@ impl RuntimeController {
         self.services.contains_key(name)
     }
 
-    pub fn list_services(&self) {
-        let x: Vec<String>  = self.services.iter().map(|x| x.key().clone()).collect();
-        println!("{:#?}",x);
+    pub fn list_services(&self) -> Vec<ServiceStatus> {
+        let all = vec![
+            "logger",
+            "dns",
+            "cache_reloader",
+            "cache_preloader",
+            "cache_cleaner",
+            "cache_refresher",
+            "tproxy",
+            "proxy",
+            "metrics",
+        ];
+
+        all.into_iter()
+            .map(|name| ServiceStatus {
+                name: name.to_string(),
+
+                active: self.services.contains_key(name),
+            })
+            .collect()
     }
 
-    pub async fn handle_commands(&mut self, cmd: RuntimeCommands) -> Result<()> {
+    pub async fn handle_commands(&mut self, cmd: RuntimeCommands) -> Result<Vec<ServiceStatus>> {
         match cmd {
             RuntimeCommands::Start(service) => match service {
                 Service::Logger => {
@@ -219,14 +243,15 @@ impl RuntimeController {
             },
 
             RuntimeCommands::Status => {
-                self.list_services();
+                let res = self.list_services();
+                return Ok(res);
             }
 
             RuntimeCommands::Shutdown => {
-                self.stop_all_services().await?;
+                self.shutdown().await?;
             }
         }
 
-        Ok(())
+        Ok(vec![ServiceStatus {name : "EOF".to_string(), active: false}])
     }
 }

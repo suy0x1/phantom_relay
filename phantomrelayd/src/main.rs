@@ -4,18 +4,22 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use phantom_relay::runtime::startup::startup;
+use phantom_relay::ipc::server::start_ipc_server;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let bus = Arc::new(Bus::new(128));
 
-    let runtime = startup(bus.clone()).await?;
+    let runtime = Arc::new(Mutex::new(startup(bus.clone()).await?));
 
-    // IPC server run
+    let ipc_runtime = runtime.clone();
+    tokio::spawn(async move {
+        let _ = start_ipc_server(ipc_runtime).await;
+    });
 
     tokio::signal::ctrl_c().await?;
 
-    runtime.shutdown().await?;
+    runtime.lock().await.shutdown().await?;
 
     Ok(())
 }
