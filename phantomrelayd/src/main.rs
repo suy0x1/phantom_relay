@@ -4,10 +4,10 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicU32;
 // use tokio::sync::Mutex;
 
-// use phantom_relay::ipc::server::start_ipc_server;
-// use phantom_relay::runtime::startup::startup;
+// use phantomrelayd::ipc::server::start_ipc_server;
+// use phantomrelayd::runtime::startup::startup;
 
-use phantom_relay::rotation::service::async_health_check;
+use phantomrelayd::rotation::service::async_health_check;
 
 #[tokio::main]
 async fn main() -> Result<()> {
