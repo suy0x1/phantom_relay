@@ -11,7 +11,7 @@ tokio-socks = "0.5"
 async-trait = "0.1"
 libc = "0.2"
 dashmap = "7.0.0-rc2"
-reqwest = { version= "0.12", features = ["socks"]}
+reqwest = { version= "0.12", features = ["socks", "json"]}
 chrono = "0.4"
 rand = "0.8"
 fast-socks5 = "1.0.0"
