@@ -29,12 +29,18 @@ async fn main() -> Result<()> {
             use colored::control::set_override;
             set_override(true);
 
-            let mut table = Table::new();
-            table.load_preset(UTF8_FULL);
+            let mut service_table = Table::new();
+            service_table.load_preset(UTF8_FULL);
+            service_table.set_header(vec!["Service", "State"]);
 
-            table.set_header(vec!["Service", "State"]);
+            let mut mode_table = Table::new();
+            mode_table.load_preset(UTF8_FULL);
+            mode_table.set_header(vec!["Mode", "State"]);
 
             println!("\n{}\n", "▣ PhantomRelay Runtime Status".bold().cyan());
+
+            let mut has_services = false;
+            let mut has_modes = false;
 
             for service in services {
                 let (icon, state_text) = if service.active {
@@ -43,20 +49,46 @@ async fn main() -> Result<()> {
                     ("○", "INACTIVE")
                 };
 
-                let name = service.name;
+                let row = vec![format!("{} {}", icon, service.name), state_text.to_string()];
 
-                table.add_row(vec![format!("{} {}", icon, name), state_text.to_string()]);
+                if service.is_mode {
+                    has_modes = true;
+                    mode_table.add_row(row);
+                } else {
+                    has_services = true;
+                    service_table.add_row(row);
+                }
             }
 
-            let output = table.to_string();
+            if has_services {
+                let services_output = service_table
+                    .to_string()
+                    .replace("RUNNING", &"RUNNING".green().bold().to_string())
+                    .replace("INACTIVE", &"INACTIVE".red().to_string())
+                    .replace("●", &"●".green().to_string())
+                    .replace("○", &"○".red().to_string());
 
-            let output = output
-                .replace("RUNNING", &"RUNNING".green().bold().to_string())
-                .replace("INACTIVE", &"INACTIVE".red().to_string())
-                .replace("●", &"●".green().to_string())
-                .replace("○", &"○".red().to_string());
+                println!("{}", "◉ Runtime Services".bold().blue());
+                println!();
+                println!("{}", services_output);
+            }
 
-            println!("{}", output);
+            if has_modes {
+                let modes_output = mode_table
+                    .to_string()
+                    .replace("RUNNING", &"RUNNING".green().bold().to_string())
+                    .replace("INACTIVE", &"INACTIVE".red().to_string())
+                    .replace("●", &"●".green().to_string())
+                    .replace("○", &"○".red().to_string());
+
+                if has_services {
+                    println!();
+                }
+
+                println!("{}", "▣ Runtime Modes".bold().yellow());
+                println!();
+                println!("{}", modes_output);
+            }
 
             println!(
                 "\n{} {}\n",

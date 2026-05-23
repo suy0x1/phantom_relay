@@ -51,24 +51,11 @@ pub async fn start_ipc_server(runtime: Arc<Mutex<RuntimeController>>) -> Result<
                         continue;
                     }
                 };
-
-                let message = match &request {
-                    IPCRequest::Runtime(cmd) => {
-                        format!("{:?}", cmd)
-                    }
-                };
-
                 let result = match request {
                     IPCRequest::Runtime(cmd) => runtime.lock().await.handle_commands(cmd).await,
                 };
 
                 let response = match result {
-                    Ok(services) if services.len() == 1 && services[0].name == "EOF" => {
-                        IPCResponse::Success {
-                            message: format!("{} service started", message),
-                        }
-                    }
-
                     Ok(services) => IPCResponse::Status { services },
 
                     Err(e) => IPCResponse::Error {

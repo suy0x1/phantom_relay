@@ -1,106 +1,54 @@
-use anyhow::{
-    anyhow,
-    Result,
-};
+use anyhow::{Result, anyhow};
 
 use crate::{
     cli::args::Commands,
-
-    runtime::{
-        commands::RuntimeCommands,
-        service::Service,
-    },
+    runtime::{commands::RuntimeCommands, service::{Mode, Service}},
 };
 
-fn parse_service(
-    service: &str,
-) -> Result<Service> {
-
+fn parse_service(service: &str) -> Result<Service> {
     match service {
+        "logger" => Ok(Service::Logger),
 
-        "logger" => {
-            Ok(Service::Logger)
-        }
+        "dns" => Ok(Service::DNS),
 
-        "dns" => {
-            Ok(Service::DNS)
-        }
+        "cache-cleaner" => Ok(Service::CacheCleaner),
 
-        "cache-reloader" => {
-            Ok(Service::CacheReloader)
-        }
+        "cache-preloader" => Ok(Service::CachePreloader),
 
-        "cache-cleaner" => {
-            Ok(Service::CacheCleaner)
-        }
+        "cache-refresher" => Ok(Service::CacheRefresher),
 
-        "cache-preloader" => {
-            Ok(Service::CachePreloader)
-        }
+        "tproxy" => Ok(Service::TProxy),
 
-        "cache-refresher" => {
-            Ok(Service::CacheRefresher)
-        }
+        "proxy" => Ok(Service::Proxy),
 
-        "tproxy" => {
-            Ok(Service::TProxy)
-        }
+        "metrics" => Ok(Service::Metrics),
 
-        "proxy" => {
-            Ok(Service::Proxy)
-        }
-
-        "metrics" => {
-            Ok(Service::Metrics)
-        }
-
-        _ => {
-            Err(anyhow!(
-                "unknown service"
-            ))
-        }
+        _ => Err(anyhow!("unknown service")),
     }
 }
 
-pub fn to_runtime_command(
-    cmd: Commands,
-) -> Result<RuntimeCommands> {
+fn parse_mode(mode: &str) -> Result<Mode> {
+    match mode {
+        "turbo-dns" => Ok(Mode::CacheReloader), 
 
+        _ => Err(anyhow!("unknown mode"))
+    }
+}
+
+pub fn to_runtime_command(cmd: Commands) -> Result<RuntimeCommands> {
     match cmd {
+        Commands::Start { service } => Ok(RuntimeCommands::Start(parse_service(&service)?)),
 
-        Commands::Start { service } => {
+        Commands::Stop { service } => Ok(RuntimeCommands::Stop(parse_service(&service)?)),
 
-            Ok(
-                RuntimeCommands::Start(
-                    parse_service(&service)?
-                )
-            )
-        }
+        Commands::Restart { service } => Ok(RuntimeCommands::Restart(parse_service(&service)?)),
 
-        Commands::Stop { service } => {
+        Commands::Enable { mode } => Ok(RuntimeCommands::Enable(parse_mode(&mode)?)),
 
-            Ok(
-                RuntimeCommands::Stop(
-                    parse_service(&service)?
-                )
-            )
-        }
+        Commands::Disable { mode } => Ok(RuntimeCommands::Disable(parse_mode(&mode)?)),
 
-        Commands::Restart { service } => {
+        Commands::Status => Ok(RuntimeCommands::Status),
 
-            Ok(
-                RuntimeCommands::Restart(
-                    parse_service(&service)?
-                )
-            )
-        }
-
-        Commands::Status => {
-            Ok(RuntimeCommands::Status)
-        }
-
-        Commands::Shutdown => {
-            Ok(RuntimeCommands::Shutdown)
-        }
+        Commands::Shutdown => Ok(RuntimeCommands::Shutdown),
     }
 }

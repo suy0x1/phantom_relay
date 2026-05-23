@@ -6,7 +6,7 @@ use std::{future::Future, pin::Pin, sync::Arc};
 use tokio_util::sync::CancellationToken;
 
 use super::commands::RuntimeCommands;
-use super::service::{Service, ServiceHandle};
+use super::service::{Mode, Service, ServiceHandle};
 
 pub type ServiceFuture = Pin<Box<dyn Future<Output = Result<()>> + Send>>;
 
@@ -20,12 +20,13 @@ pub type ServiceFn = Arc<dyn Fn(CancellationToken) -> ServiceFuture + Send + Syn
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ServiceStatus {
     pub name: String,
-
     pub active: bool,
+    pub is_mode: bool,
 }
 pub struct RuntimeController {
     pub ctx: Arc<RuntimeContext>,
     pub services: DashMap<String, ServiceHandle>,
+    pub modes: DashMap<String, bool>,
     pub networkmanager: Arc<NetworkManager>,
 }
 
@@ -39,10 +40,11 @@ impl RuntimeController {
             )),
             ctx: Arc::new(ctx),
             services: DashMap::new(),
+            modes: DashMap::new(),
         }
     }
 
-    fn start_service(&self, name: &str, service: ServiceFn) -> Result<()> {
+    fn start_service(&self, name: &str, service: ServiceFn) -> Result<Vec<ServiceStatus>> {
         if self.services.contains_key(name) {
             return Err(anyhow!("service already running"));
         }
@@ -60,10 +62,14 @@ impl RuntimeController {
         self.services
             .insert(name.to_string(), ServiceHandle { task, cancel });
 
-        Ok(())
+        Ok(vec![ServiceStatus {
+            name: name.to_string(),
+            active: true,
+            is_mode: false,
+        }])
     }
 
-    async fn stop_service(&self, name: &str) -> Result<()> {
+    async fn stop_service(&self, name: &str) -> Result<Vec<ServiceStatus>> {
         let (_, handle) = self
             .services
             .remove(name)
@@ -73,10 +79,14 @@ impl RuntimeController {
 
         let _ = handle.task.await;
 
-        Ok(())
+        Ok(vec![ServiceStatus {
+            name: name.to_string(),
+            active: false,
+            is_mode: false,
+        }])
     }
 
-    pub async fn shutdown(&self) -> Result<()> {
+    pub async fn shutdown(&self) -> Result<Vec<ServiceStatus>> {
         let services: Vec<String> = self
             .services
             .iter()
@@ -91,7 +101,11 @@ impl RuntimeController {
             }
         }
 
-        Ok(())
+        Ok(vec![ServiceStatus {
+            name: "all services".to_string(),
+            active: false,
+            is_mode: false,
+        }])
     }
 
     pub fn is_running(&self, name: &str) -> bool {
@@ -99,10 +113,9 @@ impl RuntimeController {
     }
 
     pub fn list_services(&self) -> Vec<ServiceStatus> {
-        let all = vec![
+        let services = vec![
             "logger",
             "dns",
-            "cache_reloader",
             "cache_preloader",
             "cache_cleaner",
             "cache_refresher",
@@ -111,136 +124,201 @@ impl RuntimeController {
             "metrics",
         ];
 
-        all.into_iter()
-            .map(|name| ServiceStatus {
-                name: name.to_string(),
+        let mut status = Vec::new();
 
+        // normal runtime services
+        for name in services {
+            status.push(ServiceStatus {
+                name: name.to_string(),
                 active: self.services.contains_key(name),
-            })
-            .collect()
+                is_mode: false,
+            });
+        }
+
+        // runtime modes (dns turbo etc.)
+        for mode in self.modes.iter() {
+            status.push(ServiceStatus {
+                name: mode.key().clone(),
+                active: *mode.value(),
+                is_mode: true,
+            });
+        }
+
+        status
     }
 
     pub async fn handle_commands(&mut self, cmd: RuntimeCommands) -> Result<Vec<ServiceStatus>> {
         match cmd {
             RuntimeCommands::Start(service) => match service {
                 Service::Logger => {
-                    self.start_service("logger", logger_service(self.ctx.clone()))?;
+                    let x = self.start_service("logger", logger_service(self.ctx.clone()))?;
+                    return Ok(x);
                 }
 
                 Service::DNS => {
-                    self.start_service("dns", dns_service(self.ctx.clone()))?;
-                }
-
-                Service::CacheReloader => {
-                    self.ctx.dns_config.lock().await.cache_saturation = true;
+                    let x = self.start_service("dns", dns_service(self.ctx.clone()))?;
+                    return Ok(x);
                 }
 
                 Service::CachePreloader => {
-                    self.start_service("cache_preloader", preload_service(self.ctx.clone()))?;
+                    let x =
+                        self.start_service("cache_preloader", preload_service(self.ctx.clone()))?;
+                    return Ok(x);
                 }
 
                 Service::CacheCleaner => {
-                    self.start_service("cache_cleaner", cleanup_service(self.ctx.clone()))?;
+                    let x =
+                        self.start_service("cache_cleaner", cleanup_service(self.ctx.clone()))?;
+                    return Ok(x);
                 }
 
                 Service::CacheRefresher => {
-                    self.start_service("cache_refresher", refresh_service(self.ctx.clone()))?;
+                    let x =
+                        self.start_service("cache_refresher", refresh_service(self.ctx.clone()))?;
+                    return Ok(x);
                 }
 
                 Service::TProxy => {
-                    self.start_service("tproxy", tproxy_service(self.ctx.clone()))?;
+                    let x = self.start_service("tproxy", tproxy_service(self.ctx.clone()))?;
+                    return Ok(x);
                 }
 
                 Service::Proxy => {
-                    self.start_service("proxy", proxy_service(self.ctx.clone()))?;
+                    let x = self.start_service("proxy", proxy_service(self.ctx.clone()))?;
+                    return Ok(x);
                 }
 
                 Service::Metrics => {
-                    self.start_service("metrics", metrics_service(self.ctx.clone()))?;
+                    let x = self.start_service("metrics", metrics_service(self.ctx.clone()))?;
+                    return Ok(x);
                 }
             },
 
             RuntimeCommands::Stop(service) => match service {
                 Service::Logger => {
-                    self.stop_service("logger").await?;
+                    let x = self.stop_service("logger").await?;
+                    return Ok(x);
                 }
 
                 Service::DNS => {
-                    self.stop_service("dns").await?;
-                }
-
-                Service::CacheReloader => {
-                    self.ctx.dns_config.lock().await.cache_saturation = false;
+                    let x = self.stop_service("dns").await?;
+                    return Ok(x);
                 }
 
                 Service::CachePreloader => {
-                    self.stop_service("cache_preloader").await?;
+                    let x = self.stop_service("cache_preloader").await?;
+                    return Ok(x);
                 }
 
                 Service::CacheCleaner => {
-                    self.start_service("cache_cleaner", cleanup_service(self.ctx.clone()))?;
+                    let x = self.stop_service("cache_cleaner").await?;
+                    return Ok(x);
                 }
 
                 Service::CacheRefresher => {
-                    self.stop_service("cache_refresher").await?;
+                    let x = self.stop_service("cache_refresher").await?;
+                    return Ok(x);
                 }
 
                 Service::TProxy => {
-                    self.stop_service("tproxy").await?;
+                    let x = self.stop_service("tproxy").await?;
+                    return Ok(x);
                 }
 
                 Service::Proxy => {
-                    self.stop_service("proxy").await?;
+                    let x = self.stop_service("proxy").await?;
+                    return Ok(x);
                 }
 
                 Service::Metrics => {
-                    self.stop_service("metrics").await?;
+                    let x = self.stop_service("metrics").await?;
+                    return Ok(x);
                 }
             },
 
             RuntimeCommands::Restart(service) => match service {
                 Service::Logger => {
                     self.stop_service("logger").await?;
-                    self.start_service("logger", logger_service(self.ctx.clone()))?;
+                    let mut x = self.start_service("logger", logger_service(self.ctx.clone()))?;
+                    x[0].name = x[0].name.replace(" started", " restarted");
+                    return Ok(x);
                 }
 
                 Service::DNS => {
                     self.stop_service("dns").await?;
-                    self.start_service("dns", dns_service(self.ctx.clone()))?;
+                    let mut x = self.start_service("dns", dns_service(self.ctx.clone()))?;
+                    x[0].name = x[0].name.replace(" started", " restarted");
+                    return Ok(x);
                 }
-
-                Service::CacheReloader => {}
-
                 Service::CachePreloader => {
                     self.stop_service("cache_preloader").await?;
-                    self.start_service("cache_preloader", preload_service(self.ctx.clone()))?;
+                    let mut x =
+                        self.start_service("cache_preloader", preload_service(self.ctx.clone()))?;
+                    x[0].name = x[0].name.replace(" started", " restarted");
+                    return Ok(x);
                 }
 
                 Service::CacheCleaner => {
                     self.stop_service("cache_cleaner").await?;
-                    self.start_service("cache_cleaner", cleanup_service(self.ctx.clone()))?;
+                    let mut x =
+                        self.start_service("cache_cleaner", cleanup_service(self.ctx.clone()))?;
+                    x[0].name = x[0].name.replace(" started", " restarted");
+                    return Ok(x);
                 }
 
                 Service::CacheRefresher => {
                     self.stop_service("cache_refresher").await?;
-                    self.start_service("cache_refresher", refresh_service(self.ctx.clone()))?;
+                    let mut x =
+                        self.start_service("cache_refresher", refresh_service(self.ctx.clone()))?;
+                    x[0].name = x[0].name.replace(" started", " restarted");
+                    return Ok(x);
                 }
 
                 Service::TProxy => {
                     self.stop_service("tproxy").await?;
-                    self.start_service("tproxy", tproxy_service(self.ctx.clone()))?;
+                    let mut x = self.start_service("tproxy", tproxy_service(self.ctx.clone()))?;
+                    x[0].name = x[0].name.replace(" started", " restarted");
+                    return Ok(x);
                 }
 
                 Service::Proxy => {
                     self.stop_service("proxy").await?;
-                    self.start_service("proxy", proxy_service(self.ctx.clone()))?;
+                    let mut x = self.start_service("proxy", proxy_service(self.ctx.clone()))?;
+                    x[0].name = x[0].name.replace(" started", " restarted");
+                    return Ok(x);
                 }
 
                 Service::Metrics => {
                     self.stop_service("metrics").await?;
-                    self.start_service("metrics", metrics_service(self.ctx.clone()))?;
+                    let mut x = self.start_service("metrics", metrics_service(self.ctx.clone()))?;
+                    x[0].name = x[0].name.replace(" started", " restarted");
+                    return Ok(x);
                 }
             },
+
+            RuntimeCommands::Enable(m) => match m {
+                Mode::CacheReloader => {
+                        self.ctx.dns_config.lock().await.cache_saturation = true;
+                        self.modes.insert("dns turbo".to_string(), true);
+                        return Ok(vec![ServiceStatus {
+                            name: "turbo cache mode".to_string(),
+                            active: true,
+                            is_mode: true,
+                        }]);
+                },
+            },
+
+            RuntimeCommands::Disable(m) => match m {
+                Mode::CacheReloader => {
+                    self.ctx.dns_config.lock().await.cache_saturation = false;
+                        self.modes.remove(&"dns turbo".to_string());
+                        return Ok(vec![ServiceStatus {
+                            name: "turbo cache mode".to_string(),
+                            active: false,
+                            is_mode: true,
+                        }]);
+                }
+            }
 
             RuntimeCommands::Status => {
                 let res = self.list_services();
@@ -248,10 +326,9 @@ impl RuntimeController {
             }
 
             RuntimeCommands::Shutdown => {
-                self.shutdown().await?;
+                let x = self.shutdown().await?;
+                return Ok(x);
             }
         }
-
-        Ok(vec![ServiceStatus {name : "EOF".to_string(), active: false}])
     }
 }

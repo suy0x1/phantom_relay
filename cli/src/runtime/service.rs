@@ -4,11 +4,15 @@ use serde::{Deserialize, Serialize};
 pub enum Service {
     Logger,
     DNS,
-    CacheReloader,
     CacheCleaner,
     CachePreloader,
     CacheRefresher,
     TProxy,
     Proxy,
     Metrics,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum Mode {
+    CacheReloader,
 }

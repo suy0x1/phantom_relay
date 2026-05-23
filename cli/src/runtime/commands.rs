@@ -1,24 +1,14 @@
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use serde::{Deserialize, Serialize};
 
-use super::service::Service;
+use super::service::{Mode, Service};
 
-#[derive(
-    Serialize,
-    Deserialize,
-    Debug,
-)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum RuntimeCommands {
-
     Start(Service),
-
     Stop(Service),
-
     Restart(Service),
-
+    Enable(Mode),
+    Disable(Mode),
     Status,
-
     Shutdown,
 }

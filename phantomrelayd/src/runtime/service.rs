@@ -11,7 +11,6 @@ pub struct ServiceHandle {
 pub enum Service {
     Logger,
     DNS,
-    CacheReloader,
     CacheCleaner,
     CachePreloader,
     CacheRefresher,
@@ -20,3 +19,7 @@ pub enum Service {
     Metrics,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub enum Mode {
+    CacheReloader,
+}
