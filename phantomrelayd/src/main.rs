@@ -1,10 +1,10 @@
 use anyhow::Result;
-use phantom_relay::monitor::bus::Bus;
+use phantomrelayd::monitor::bus::Bus;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use phantom_relay::runtime::startup::startup;
-use phantom_relay::ipc::server::start_ipc_server;
+use phantomrelayd::runtime::startup::startup;
+use phantomrelayd::ipc::server::start_ipc_server;
 
 #[tokio::main]
 async fn main() -> Result<()> {
