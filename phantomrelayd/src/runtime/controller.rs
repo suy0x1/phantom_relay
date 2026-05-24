@@ -11,8 +11,7 @@ use super::service::{Mode, Service, ServiceHandle};
 pub type ServiceFuture = Pin<Box<dyn Future<Output = Result<()>> + Send>>;
 
 use crate::runtime::factories::{
-    cleanup_service, dns_service, logger_service, metrics_service, preload_service, proxy_service,
-    refresh_service, tproxy_service,
+    cleanup_service, collector_service, dns_service, logger_service, metrics_service, preload_service, proxy_service, refresh_service, tproxy_service
 };
 
 pub type ServiceFn = Arc<dyn Fn(CancellationToken) -> ServiceFuture + Send + Sync>;
@@ -115,6 +114,7 @@ impl RuntimeController {
     pub fn list_services(&self) -> Vec<ServiceStatus> {
         let services = vec![
             "logger",
+            "proxy_collector",
             "dns",
             "cache_preloader",
             "cache_cleaner",
@@ -153,6 +153,11 @@ impl RuntimeController {
                 Service::Logger => {
                     let x = self.start_service("logger", logger_service(self.ctx.clone()))?;
                     return Ok(x);
+                }
+
+                Service::ProxyCollector => {
+                    let x = self.start_service("proxy_collector", collector_service(self.ctx.clone()))?;
+                    return Ok(x)
                 }
 
                 Service::DNS => {
@@ -200,6 +205,11 @@ impl RuntimeController {
                     return Ok(x);
                 }
 
+                Service::ProxyCollector => {
+                    let x = self.stop_service("proxy_collector").await?;
+                    return Ok(x);
+                }
+
                 Service::DNS => {
                     let x = self.stop_service("dns").await?;
                     return Ok(x);
@@ -240,6 +250,13 @@ impl RuntimeController {
                 Service::Logger => {
                     self.stop_service("logger").await?;
                     let mut x = self.start_service("logger", logger_service(self.ctx.clone()))?;
+                    x[0].name = x[0].name.replace(" started", " restarted");
+                    return Ok(x);
+                }
+
+                Service::ProxyCollector => {
+                    self.stop_service("proxy_collector").await?;
+                    let mut x = self.start_service("proxy_collector", collector_service(self.ctx.clone()))?;
                     x[0].name = x[0].name.replace(" started", " restarted");
                     return Ok(x);
                 }

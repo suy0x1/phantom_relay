@@ -10,6 +10,7 @@ pub struct ServiceHandle {
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Service {
     Logger,
+    ProxyCollector,
     DNS,
     CacheCleaner,
     CachePreloader,

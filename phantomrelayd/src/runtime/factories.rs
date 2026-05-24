@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use super::context::RuntimeContext;
 use crate::{
     dns::{
         cleanup::start_cache_cleanup,
@@ -9,9 +10,9 @@ use crate::{
     metrics::listener::start_metrics,
     monitor::logger::start_logger,
     proxy::server::start_socks5_server,
+    collector::service::collect_healthy_proxy,
     tproxy::listener::start_listener,
 };
-use super::context::RuntimeContext;
 
 use super::controller::ServiceFn;
 
@@ -123,6 +124,22 @@ pub fn cleanup_service(ctx: Arc<RuntimeContext>) -> ServiceFn {
                 ctx.dns_config.clone(),
                 ctx.dns_cache.clone(),
                 ctx.bus.clone(),
+                cancel,
+            )
+            .await
+        })
+    })
+}
+
+pub fn collector_service(ctx: Arc<RuntimeContext>) -> ServiceFn {
+    Arc::new(move |cancel| {
+        let ctx = ctx.clone();
+
+        Box::pin(async move {
+            collect_healthy_proxy(
+                ctx.collector_config.clone(),
+                ctx.bus.clone(),
+                ctx.healthy_proxies.clone(),
                 cancel,
             )
             .await

@@ -4,7 +4,7 @@ pub mod errors;
 pub mod metrics;
 pub mod monitor;
 pub mod proxy;
-pub mod rotation;
+pub mod collector;
 pub mod routing;
 pub mod runtime;
 pub mod system;

@@ -1,17 +1,15 @@
 use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicU32, Ordering},
-    },
+    sync::Arc,
     time::{Duration, Instant},
 };
 
-use crate::rotation::manager::HealthyProxy;
+use crate::collector::manager::HealthyProxy;
 
 use super::manager::PorxyMetadata;
 use anyhow::Result;
 use dashmap::DashMap;
 use reqwest::{Client, Proxy};
+use tokio_util::sync::CancellationToken;
 
 async fn check_info(proxy: &str) -> Result<(PorxyMetadata, Client)> {
     let client = Client::builder()
@@ -31,11 +29,24 @@ pub async fn get_healthy_proxies(
     map: Arc<DashMap<HealthyProxy, Client>>,
     latency: u128,
     proxies: Vec<String>,
-    progress: Arc<AtomicU32>,
+    cancel: CancellationToken,
 ) -> Result<()> {
     for i in proxies {
+        if cancel.is_cancelled() {
+            return Ok(());
+        }
+
         let start = Instant::now();
-        match check_info(&i).await {
+
+        let res = tokio::select! {
+            _ = cancel.cancelled() => {
+                return Ok(());
+            }
+
+            res = check_info(&i) => res
+        };
+
+        match res {
             Ok(x) => {
                 let (ip, port) = i
                     .strip_prefix("socks5://")
@@ -43,10 +54,13 @@ pub async fn get_healthy_proxies(
                     .split_once(':')
                     .map(|(i, p)| (i, p.parse::<u16>().unwrap()))
                     .unwrap();
+
                 let ms = start.elapsed().as_millis();
+
                 if ms > latency {
                     continue;
                 }
+
                 map.insert(
                     HealthyProxy {
                         ip: ip.to_string(),
@@ -57,9 +71,10 @@ pub async fn get_healthy_proxies(
                     x.1,
                 );
             }
+
             Err(_) => {}
         }
-        progress.fetch_add(1, Ordering::Relaxed);
     }
+
     Ok(())
 }
