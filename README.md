@@ -117,6 +117,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed component documentation.
 - Rust 1.70+ (edition 2024)
 - Linux kernel with netfilter support (for TProxy)
 - libssl-dev (for HTTPS support)
+- nftables v1.0.0+ 
 
 ### Build Commands
 
