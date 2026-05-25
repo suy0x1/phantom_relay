@@ -227,6 +227,18 @@ pub async fn start_logger(bus: Arc<Bus>, cancel: CancellationToken) -> Result<()
                                 cap
                             );
                         }
+
+                        Event::LoadInitialProxy {
+                            timestamp,
+                        } => {
+                            println!("[{}] [init] loading first proxy",timestamp)
+                        }
+
+                        Event::RotateProxy {
+                            timestamp,
+                        } => {
+                            println!("[{}] rotating proxy now", timestamp)
+                        }
                     },
 
                     Err(

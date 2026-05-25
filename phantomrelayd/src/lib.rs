@@ -7,7 +7,7 @@ pub mod proxy;
 pub mod collector;
 pub mod routing;
 pub mod runtime;
-pub mod system;
+pub mod subsystems;
 pub mod tproxy;
 pub mod utils;
 pub mod ipc;

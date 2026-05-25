@@ -5,12 +5,14 @@ use crate::monitor::bus::Bus;
 use crate::monitor::events::Event::{TaskShutdown, TaskStartup};
 
 use crate::dns::cache::{CacheEntry, CacheKey};
+use crate::subsystems::rotation::route::RouteContext;
 use anyhow::Result;
 use chrono::Local;
 use dashmap::DashMap;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Instant;
+use tokio::sync::RwLock;
 use tokio::sync::{Mutex, Notify};
 use tokio::time::{Duration, interval};
 use tokio_util::sync::CancellationToken;
@@ -20,6 +22,7 @@ pub async fn start_cache_refresh(
     bus: Arc<Bus>,
     cache: Arc<DashMap<CacheKey, CacheEntry>>,
     inflight: Arc<DashMap<CacheKey, Arc<Notify>>>,
+    current: Arc<RwLock<RouteContext>>,
     cancel: CancellationToken,
 ) -> Result<()> {
     let _ = bus.emit(TaskStartup {
@@ -123,7 +126,7 @@ pub async fn start_cache_refresh(
 
                     let inflight =
                         inflight.clone();
-
+                    let client = current.read().await.clone().client;
                     tokio::spawn(async move {
 
                         let packet =
@@ -131,9 +134,10 @@ pub async fn start_cache_refresh(
                                 &key.domain,
                                 key.qtype,
                             );
-
+                            
                         let result =
                             crate::dns::doh::forward_dns(
+                                client,
                                 packet,
                                 cache,
                                 inflight.clone(),

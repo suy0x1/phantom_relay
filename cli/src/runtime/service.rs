@@ -5,6 +5,7 @@ pub enum Service {
     Logger,
     ProxyCollector,
     DNS,
+    ProxyRotator,
     CacheCleaner,
     CachePreloader,
     CacheRefresher,

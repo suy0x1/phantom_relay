@@ -1,13 +1,10 @@
-use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
 };
 
 use anyhow::Result;
 use dashmap::DashMap;
-use tokio_util::sync::CancellationToken;
 use tokio::sync::Mutex;
 
 use crate::{
@@ -67,7 +64,6 @@ impl NetworkManager {
     }
 
     pub async fn enable(&self, capability: NetworkCapability) -> Result<()> {
-
         self.ensure_initialized()?;
 
         match capability {
@@ -183,36 +179,26 @@ impl NetworkManager {
         Ok(())
     }
 
-    pub async fn network_sub(
-        &self,
-        ctx: Arc<RuntimeContext>,
-        cancel: CancellationToken,
-    ) -> Result<()> {
+    pub async fn network_sub(&self, ctx: Arc<RuntimeContext>) -> Result<()> {
         let mut rx = ctx.bus.subscribe();
 
         self.ensure_initialized()?;
 
         loop {
-            tokio::select! {
-
-                _ = cancel.cancelled() => {
-                    remove_table(ctx.bus.clone())?;
-                    break;
+            match rx.recv().await {
+                Ok(Event::EnableCapability { cap, timestamp: _ }) => {
+                    self.enable(cap.clone()).await?;
                 }
 
-                msg = rx.recv() => {
-                    match msg {
+                Ok(Event::DisableCapability { cap, timestamp: _ }) => {
+                    self.disable(&cap).await?;
+                }
 
-                        Ok(Event::EnableCapability { cap, timestamp: _ }) => {
-                            self.enable(cap.clone()).await?;
-                            }
+                Ok(_) => {}
 
-                        Ok(Event::DisableCapability { cap, timestamp: _ }) => {
-                            self.disable(&cap).await?;
-                        }
-
-                        _ => {}
-                    }
+                Err(_) => {
+                    remove_table(ctx.bus.clone())?;
+                    break;
                 }
             }
         }
@@ -223,10 +209,9 @@ impl NetworkManager {
     pub fn spawn_network_manager(
         self: Arc<Self>,
         ctx: Arc<RuntimeContext>,
-        cancel: CancellationToken,
     ) {
         tokio::spawn(async move {
-            let _ = self.network_sub(ctx, cancel).await;
+            let _ = self.network_sub(ctx).await;
         });
     }
 

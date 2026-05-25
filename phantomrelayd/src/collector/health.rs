@@ -12,6 +12,7 @@ use reqwest::{Client, Proxy};
 use tokio_util::sync::CancellationToken;
 
 async fn check_info(proxy: &str) -> Result<(PorxyMetadata, Client)> {
+    let proxy = proxy.replace("socks5://", "socks5h://");
     let client = Client::builder()
         .timeout(Duration::from_secs(10))
         .proxy(Proxy::all(proxy)?)

@@ -13,6 +13,8 @@ fn parse_service(service: &str) -> Result<Service> {
 
         "dns" => Ok(Service::DNS),
 
+        "rotator" => Ok(Service::ProxyRotator),
+
         "cache-cleaner" => Ok(Service::CacheCleaner),
 
         "cache-preloader" => Ok(Service::CachePreloader),

@@ -12,13 +12,16 @@ use crate::dns::doh::forward_dns;
 use crate::dns::prewarmer::packet::build_dns_query;
 use crate::monitor::bus::Bus;
 use crate::monitor::events::Event::{Info, TaskStartup, TaskShutdown};
+use crate::subsystems::rotation::route::RouteContext;
 use chrono::Local;
+use tokio::sync::RwLock;
 
 pub async fn preload_dns_entries(
     config: Arc<Mutex<DNSConfig>>,
     bus: Arc<Bus>,
     cache: Arc<DashMap<CacheKey, CacheEntry>>,
     inflight: Arc<DashMap<CacheKey, Arc<Notify>>>,
+    current: Arc<RwLock<RouteContext>>,
     cancel: CancellationToken,
 ) -> Result<()> {
     let _ = bus.emit(TaskStartup {
@@ -47,8 +50,8 @@ pub async fn preload_dns_entries(
         };
 
         inflight.insert(a_key, a_notify.clone());
-
-        let _ = forward_dns(a_packet, cache.clone(), inflight.clone(), a_notify).await;
+        let client = current.read().await.clone().client;
+        let _ = forward_dns(client.clone(), a_packet, cache.clone(), inflight.clone(), a_notify).await;
 
         if cancel.is_cancelled() {
             break;
@@ -67,7 +70,7 @@ pub async fn preload_dns_entries(
 
         inflight.insert(aaaa_key, aaaa_notify.clone());
 
-        let _ = forward_dns(aaaa_packet, cache.clone(), inflight.clone(), aaaa_notify).await;
+        let _ = forward_dns(client, aaaa_packet, cache.clone(), inflight.clone(), aaaa_notify).await;
     }
 
     let _ = bus.emit(Info {

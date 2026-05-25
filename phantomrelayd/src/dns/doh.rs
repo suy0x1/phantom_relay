@@ -1,25 +1,15 @@
 use anyhow::Result;
 use reqwest::Client;
-use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 use tokio::sync::Notify;
 
 use crate::dns::cache::{CacheEntry, CacheKey};
 use crate::dns::parse::{extract_cache_key, extract_ips, extract_min_ttl};
-use crate::routing::connect::get_dns_proxy;
 use dashmap::DashMap;
 use std::sync::Arc;
 
-static DOH_CLIENT: LazyLock<Client> = LazyLock::new(|| {
-    let proxy = get_dns_proxy();
-    Client::builder()
-        .proxy(reqwest::Proxy::https(proxy).expect("valid proxy"))
-        .timeout(Duration::from_secs(3))
-        .build()
-        .expect("client build failed")
-});
-
 pub async fn forward_dns(
+    client: Client,
     packet: Vec<u8>,
     cache: Arc<DashMap<CacheKey, CacheEntry>>,
     inflight: Arc<DashMap<CacheKey, Arc<Notify>>>,
@@ -31,7 +21,7 @@ pub async fn forward_dns(
     let ips = extract_ips(&packet[0..]);
     let rc = packet[3] & 0x0F;
 
-    let response = DOH_CLIENT
+    let response = client
         .post("https://cloudflare-dns.com/dns-query")
         .header("content-type", "application/dns-message")
         .header("accept", "application/dns-message")

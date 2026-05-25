@@ -8,7 +8,8 @@ use crate::monitor::events::Event::{
     DNSCacheHit, DNSCacheMiss, DNSRequest, DisableCapability, EnableCapability, Error,
     ServiceStartup, ServiceShutdown
 };
-use crate::system::network::capablities::NetworkCapability::DNSIntercept;
+use crate::subsystems::network::capablities::NetworkCapability::DNSIntercept;
+use crate::subsystems::rotation::route::RouteContext;
 
 use chrono::Local;
 use dashmap::DashMap;
@@ -20,12 +21,14 @@ use std::time::Instant;
 use tokio::net::UdpSocket;
 use tokio::sync::{Notify, Semaphore, Mutex};
 use tokio_util::sync::CancellationToken;
+use tokio::sync::RwLock;
 
 pub async fn start_dns_listener(
     config: Arc<Mutex<DNSConfig>>,
     cache: Arc<DashMap<CacheKey, CacheEntry>>,
     bus: Arc<Bus>,
     inflight: Arc<DashMap<CacheKey, Arc<Notify>>>,
+    current: Arc<RwLock<RouteContext>>,
     cancel: CancellationToken,
 ) -> Result<()> {
     let (host, port, max_par) = {let cfg = config.lock().await; (cfg.host.clone(),cfg.port,cfg.max_parallel_dns_lookups)};
@@ -196,10 +199,11 @@ pub async fn start_dns_listener(
 
         let permit = limit.clone().acquire_owned().await?;
 
+        let client = current.read().await.clone().client;
         tokio::spawn(async move {
             let _permit = permit;
-
             let response = match crate::dns::doh::forward_dns(
+                client,
                 packet,
                 cache_clone,
                 inflight_clone.clone(),
