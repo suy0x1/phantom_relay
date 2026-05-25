@@ -2,6 +2,7 @@ use crate::config::dns::DNSConfig;
 use crate::dns::parse::extract_cache_key;
 use crate::dns::prewarmer::packet::build_dns_query;
 use crate::monitor::bus::Bus;
+use crate::monitor::error_ext::BusErrorExt;
 use crate::monitor::events::Event::{TaskShutdown, TaskStartup};
 
 use crate::dns::cache::{CacheEntry, CacheKey};
@@ -81,7 +82,8 @@ pub async fn start_cache_refresh(
                             anyhow::anyhow!(
                                 "failed to extract cache key"
                             )
-                        })?
+                        })
+                        .emit_to_bus(&bus)?
                         .domain;
 
                     let remaining =
@@ -126,6 +128,7 @@ pub async fn start_cache_refresh(
 
                     let inflight =
                         inflight.clone();
+                    let bus_clone = bus.clone();
                     let client = current.read().await.clone().client;
                     tokio::spawn(async move {
 
@@ -134,7 +137,7 @@ pub async fn start_cache_refresh(
                                 &key.domain,
                                 key.qtype,
                             );
-                            
+
                         let result =
                             crate::dns::doh::forward_dns(
                                 client,
@@ -142,6 +145,7 @@ pub async fn start_cache_refresh(
                                 cache,
                                 inflight.clone(),
                                 notify.clone(),
+                                bus_clone,
                             )
                             .await;
 

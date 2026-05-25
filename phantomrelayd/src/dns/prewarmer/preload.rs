@@ -2,16 +2,16 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use dashmap::DashMap;
+use tokio::sync::Mutex;
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
-use tokio::sync::Mutex;
 
 use crate::config::dns::DNSConfig;
 use crate::dns::cache::{CacheEntry, CacheKey};
 use crate::dns::doh::forward_dns;
 use crate::dns::prewarmer::packet::build_dns_query;
 use crate::monitor::bus::Bus;
-use crate::monitor::events::Event::{Info, TaskStartup, TaskShutdown};
+use crate::monitor::events::Event::{Info, TaskShutdown, TaskStartup};
 use crate::subsystems::rotation::route::RouteContext;
 use chrono::Local;
 use tokio::sync::RwLock;
@@ -51,7 +51,15 @@ pub async fn preload_dns_entries(
 
         inflight.insert(a_key, a_notify.clone());
         let client = current.read().await.clone().client;
-        let _ = forward_dns(client.clone(), a_packet, cache.clone(), inflight.clone(), a_notify).await;
+        let _ = forward_dns(
+            client.clone(),
+            a_packet,
+            cache.clone(),
+            inflight.clone(),
+            a_notify,
+            bus.clone(),
+        )
+        .await;
 
         if cancel.is_cancelled() {
             break;
@@ -70,7 +78,15 @@ pub async fn preload_dns_entries(
 
         inflight.insert(aaaa_key, aaaa_notify.clone());
 
-        let _ = forward_dns(client, aaaa_packet, cache.clone(), inflight.clone(), aaaa_notify).await;
+        let _ = forward_dns(
+            client,
+            aaaa_packet,
+            cache.clone(),
+            inflight.clone(),
+            aaaa_notify,
+            bus.clone(),
+        )
+        .await;
     }
 
     let _ = bus.emit(Info {

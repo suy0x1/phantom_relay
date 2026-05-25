@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use super::handler::handle_client;
 use crate::config::proxy::ProxyConfig;
+use crate::monitor::error_ext::BusErrorExt;
 use crate::monitor::events::Event::{Error, ServiceStartup, ServiceShutdown};
 use crate::routing::manager::ConnectionManager;
 use crate::subsystems::rotation::route::RouteContext;
@@ -41,7 +42,7 @@ pub async fn start_socks5_server(
             }
 
             result = listener.accept() => {
-                let (stream, _) = result?;
+                let (stream, _) = result.emit_to_bus(&bus)?;
 
                 let conn_map_clone =
                     conn_map.clone();

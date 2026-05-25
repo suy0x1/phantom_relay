@@ -9,8 +9,7 @@ use tokio::sync::Mutex;
 
 use crate::{
     config::{dns::DNSConfig, tproxy::TProxyConfig},
-    monitor::bus::Bus,
-    monitor::events::Event,
+    monitor::{bus::Bus, events::Event},
     runtime::context::RuntimeContext,
 };
 
@@ -19,7 +18,7 @@ use super::{
     rules::{
         block_quic, ensure_base_stack, ignore_localhost, redirect_dns, redirect_tcp,
         remove_dns_redirect, remove_localhost_bypass, remove_table, remove_tcp_redirect,
-        unblock_quic,
+        unblock_quic, mark_bypass, remove_mark_bypass,
     },
 };
 
@@ -130,6 +129,7 @@ impl NetworkManager {
                 }
 
                 NetworkCapability::TransparentProxy => {
+                    mark_bypass(self.bus.clone())?;
                     redirect_tcp(self.tproxy_config.clone(), self.bus.clone())?;
                 }
 
@@ -161,6 +161,7 @@ impl NetworkManager {
 
             NetworkCapability::TransparentProxy => {
                 remove_tcp_redirect(self.tproxy_config.clone(), self.bus.clone())?;
+                remove_mark_bypass(self.bus.clone())?;
             }
 
             NetworkCapability::DNSIntercept => {

@@ -1,5 +1,6 @@
 use crate::config::tproxy::TProxyConfig;
 use crate::monitor::bus::Bus;
+use crate::monitor::error_ext::BusErrorExt;
 use crate::monitor::events::Event::{DisableCapability, EnableCapability, Error, ServiceStartup, ServiceShutdown};
 use crate::routing::manager::ConnectionManager;
 use crate::subsystems::network::capablities::NetworkCapability::{
@@ -21,7 +22,9 @@ pub async fn start_listener(
     current: Arc<RwLock<RouteContext>>,
     cancel: CancellationToken,
 ) -> Result<()> {
-    let listener = TcpListener::bind(format!("{}:{}", config.host, config.port)).await?;
+    let listener = TcpListener::bind(format!("{}:{}", config.host, config.port))
+        .await
+        .emit_to_bus(&bus)?;
 
     bus.emit(ServiceStartup {
         service_name: "TCP Proxy Server".to_string(),
@@ -68,7 +71,7 @@ pub async fn start_listener(
             }
 
             result = listener.accept() => {
-                let (stream, _) = result?;
+                let (stream, _) = result.emit_to_bus(&bus)?;
 
                 let conn_map = conn_map.clone();
                 let bus_clone = bus.clone();

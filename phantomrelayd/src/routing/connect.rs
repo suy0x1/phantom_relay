@@ -1,9 +1,10 @@
 use anyhow::Result;
 use tokio::net::TcpStream;
 
-use crate::{routing::proxy::ProxyProvider, subsystems::rotation::route::RouteContext};
+use crate::{monitor::bus::Bus, monitor::error_ext::BusErrorExt, routing::proxy::ProxyProvider, subsystems::rotation::route::RouteContext};
 
 use super::types::socks5::Socks5Proxy;
+use std::sync::Arc;
 
 
 pub struct Conn {
@@ -12,11 +13,11 @@ pub struct Conn {
     pub stream: TcpStream
 }
 
-pub async fn connect_target(current: RouteContext, host: &str, port: u16) -> Result<Conn> {
+pub async fn connect_target(current: RouteContext, host: &str, port: u16, bus: Arc<Bus>) -> Result<Conn> {
     let proxy = Socks5Proxy {
         proxy_addr: format!("{}:{}",current.proxy.ip,current.proxy.port),
     };
-    let conn = proxy.connect(host, port).await?;
+    let conn = proxy.connect(host, port).await.emit_to_bus(&bus)?;
 
     Ok(Conn {
         host: format!("{}",current.proxy.ip),
