@@ -62,47 +62,47 @@ A high-performance Rust-based proxy relay daemon that combines transparent proxy
 │                    PhantomRelay                      │
 ├──────────────────────────────────────────────────────┤
 │                                                      │
-│  CLI Tool (prctl)                                   │
-│  └─ IPC Client                                      │
-│     └─ Unix Socket                                  │
+│  CLI Tool (prctl)                                    │
+│  └─ IPC Client                                       │
+│     └─ Unix Socket                                   │
 │                                                      │
-│  Daemon (phantomrelayd)                             │
-│  ├─ Runtime Controller (service lifecycle)          │
-│  ├─ Event Bus (pub-sub)                             │
-│  │                                                  │
-│  ├─ DNS Subsystem                                   │
-│  │  ├─ Listener (UDP/DoH)                           │
-│  │  ├─ Cache (DashMap)                              │
-│  │  ├─ Prewarmer (background refresh)               │
-│  │  ├─ Cleaner (TTL expiry)                         │
-│  │  └─ Refresh service                              │
-│  │                                                  │
-│  ├─ TProxy Subsystem                                │
-│  │  ├─ Listener (intercept port)                    │
-│  │  ├─ Original destination extraction              │
-│  │  └─ Relay handler                                │
-│  │                                                  │
-│  ├─ Proxy Subsystem                                 │
-│  │  ├─ Server (SOCKS5 listener)                     │
-│  │  └─ Handler (connection relay)                   │
-│  │                                                  │
-│  ├─ Routing Layer                                   │
-│  │  ├─ Connection Manager                           │
-│  │  ├─ Proxy Router                                 │
-│  │  └─ SOCKS5 protocol handler                      │
-│  │                                                  │
-│  ├─ Proxy Rotation Engine                           │
-│  │  ├─ Cursor-based round-robin                     │
-│  │  ├─ Healthy proxies registry                     │
-│  │  └─ Route context (current proxy)                │
-│  │                                                  │
-│  ├─ Collector Service                               │
-│  │  ├─ Health checks                                │
-│  │  └─ Availability tracking                        │
-│  │                                                  │
-│  └─ Monitoring                                      │
-│     ├─ Logger                                       │
-│     └─ Metrics listener                             │
+│  Daemon (phantomrelayd)                              │
+│  ├─ Runtime Controller (service lifecycle)           │
+│  ├─ Event Bus (pub-sub)                              │
+│  │                                                   │
+│  ├─ DNS Subsystem                                    │
+│  │  ├─ Listener (UDP/DoH)                            │
+│  │  ├─ Cache (DashMap)                               │
+│  │  ├─ Prewarmer (background refresh)                │
+│  │  ├─ Cleaner (TTL expiry)                          │
+│  │  └─ Refresh service                               │
+│  │                                                   │
+│  ├─ TProxy Subsystem                                 │
+│  │  ├─ Listener (intercept port)                     │
+│  │  ├─ Original destination extraction               │
+│  │  └─ Relay handler                                 │
+│  │                                                   │
+│  ├─ Proxy Subsystem                                  │
+│  │  ├─ Server (SOCKS5 listener)                      │
+│  │  └─ Handler (connection relay)                    │
+│  │                                                   │
+│  ├─ Routing Layer                                    │
+│  │  ├─ Connection Manager                            │
+│  │  ├─ Proxy Router                                  │
+│  │  └─ SOCKS5 protocol handler                       │
+│  │                                                   │
+│  ├─ Proxy Rotation Engine                            │
+│  │  ├─ Cursor-based round-robin                      │
+│  │  ├─ Healthy proxies registry                      │
+│  │  └─ Route context (current proxy)                 │
+│  │                                                   │
+│  ├─ Collector Service                                │
+│  │  ├─ Health checks                                 │
+│  │  └─ Availability tracking                         │
+│  │                                                   │
+│  └─ Monitoring                                       │
+│     ├─ Logger                                        │
+│     └─ Metrics listener                              │
 │                                                      │
 └──────────────────────────────────────────────────────┘
 ```
