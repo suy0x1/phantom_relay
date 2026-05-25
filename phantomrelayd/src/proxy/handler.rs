@@ -13,9 +13,11 @@ use crate::routing::connect::connect_target;
 use crate::routing::manager::ConnectionManager;
 use crate::routing::connection::{ConnectionKey, ProxyConnection};
 use crate::monitor::events::Event::{ConnectionOpened, ConnectionClosed};
+use crate::subsystems::rotation::route::RouteContext;
 use std::time::Instant;
 
 pub async fn handle_client(
+    current: RouteContext,
     stream: TcpStream,
     map: Arc<ConnectionManager>,
     bus: Arc<Bus>,
@@ -28,15 +30,13 @@ pub async fn handle_client(
     if cmd != Socks5Command::TCPConnect {
         return Ok(());
     }
-
     let addr: SocketAddr = target_addr.to_string().parse()?;
-
     let key = ConnectionKey {
         dst_ip: addr.ip().to_string().parse()?,
         dst_port: addr.port(),
     };
 
-    let conn = connect_target(&addr.ip().to_string(), addr.port()).await?;
+    let conn = connect_target(current, &addr.ip().to_string(), addr.port(), bus.clone()).await?;
 
     let proxy_used = ProxyConnection {
         started: Instant::now(),

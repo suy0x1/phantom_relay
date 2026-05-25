@@ -1,45 +1,40 @@
 use anyhow::Result;
 use reqwest::Client;
-use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 use tokio::sync::Notify;
 
 use crate::dns::cache::{CacheEntry, CacheKey};
 use crate::dns::parse::{extract_cache_key, extract_ips, extract_min_ttl};
-use crate::routing::connect::get_dns_proxy;
+use crate::monitor::bus::Bus;
+use crate::monitor::error_ext::BusErrorExt;
 use dashmap::DashMap;
 use std::sync::Arc;
 
-static DOH_CLIENT: LazyLock<Client> = LazyLock::new(|| {
-    let proxy = get_dns_proxy();
-    Client::builder()
-        .proxy(reqwest::Proxy::https(proxy).expect("valid proxy"))
-        .timeout(Duration::from_secs(3))
-        .build()
-        .expect("client build failed")
-});
-
 pub async fn forward_dns(
+    client: Client,
     packet: Vec<u8>,
     cache: Arc<DashMap<CacheKey, CacheEntry>>,
     inflight: Arc<DashMap<CacheKey, Arc<Notify>>>,
     notify: Arc<Notify>,
+    bus: Arc<Bus>,
 ) -> Result<Vec<u8>> {
-    let key =
-        extract_cache_key(&packet).ok_or_else(|| anyhow::anyhow!("failed to extract cache key"))?;
+    let key = extract_cache_key(&packet)
+        .ok_or_else(|| anyhow::anyhow!("failed to extract cache key"))
+        .emit_to_bus(&bus)?;
     let ttl = extract_min_ttl(&packet[0..]).unwrap_or(90);
     let ips = extract_ips(&packet[0..]);
     let rc = packet[3] & 0x0F;
 
-    let response = DOH_CLIENT
+    let response = client
         .post("https://cloudflare-dns.com/dns-query")
         .header("content-type", "application/dns-message")
         .header("accept", "application/dns-message")
         .body(packet)
         .send()
-        .await?;
+        .await
+        .emit_to_bus(&bus)?;
 
-    let response_bytes = response.bytes().await?.to_vec();
+    let response_bytes = response.bytes().await.emit_to_bus(&bus)?.to_vec();
 
     let value = CacheEntry {
         response: response_bytes.clone(),

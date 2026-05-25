@@ -2,15 +2,18 @@ use crate::config::dns::DNSConfig;
 use crate::dns::parse::extract_cache_key;
 use crate::dns::prewarmer::packet::build_dns_query;
 use crate::monitor::bus::Bus;
+use crate::monitor::error_ext::BusErrorExt;
 use crate::monitor::events::Event::{TaskShutdown, TaskStartup};
 
 use crate::dns::cache::{CacheEntry, CacheKey};
+use crate::subsystems::rotation::route::RouteContext;
 use anyhow::Result;
 use chrono::Local;
 use dashmap::DashMap;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Instant;
+use tokio::sync::RwLock;
 use tokio::sync::{Mutex, Notify};
 use tokio::time::{Duration, interval};
 use tokio_util::sync::CancellationToken;
@@ -20,6 +23,7 @@ pub async fn start_cache_refresh(
     bus: Arc<Bus>,
     cache: Arc<DashMap<CacheKey, CacheEntry>>,
     inflight: Arc<DashMap<CacheKey, Arc<Notify>>>,
+    current: Arc<RwLock<RouteContext>>,
     cancel: CancellationToken,
 ) -> Result<()> {
     let _ = bus.emit(TaskStartup {
@@ -78,7 +82,8 @@ pub async fn start_cache_refresh(
                             anyhow::anyhow!(
                                 "failed to extract cache key"
                             )
-                        })?
+                        })
+                        .emit_to_bus(&bus)?
                         .domain;
 
                     let remaining =
@@ -123,7 +128,8 @@ pub async fn start_cache_refresh(
 
                     let inflight =
                         inflight.clone();
-
+                    let bus_clone = bus.clone();
+                    let client = current.read().await.clone().client;
                     tokio::spawn(async move {
 
                         let packet =
@@ -134,10 +140,12 @@ pub async fn start_cache_refresh(
 
                         let result =
                             crate::dns::doh::forward_dns(
+                                client,
                                 packet,
                                 cache,
                                 inflight.clone(),
                                 notify.clone(),
+                                bus_clone,
                             )
                             .await;
 

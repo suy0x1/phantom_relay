@@ -1,6 +1,6 @@
 use std::net::IpAddr;
 
-use crate::system::network::capablities::NetworkCapability;
+use crate::subsystems::network::capablities::NetworkCapability;
 
 #[derive(Debug, Clone)]
 pub enum Event {
@@ -94,6 +94,14 @@ pub enum Event {
 
     DisableCapability {
         cap: NetworkCapability,
+        timestamp: String,
+    },
+
+    LoadInitialProxy {
+        timestamp: String,
+    },
+
+    RotateProxy {
         timestamp: String,
     },
 

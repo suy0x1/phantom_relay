@@ -1,19 +1,15 @@
-use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
 };
 
 use anyhow::Result;
 use dashmap::DashMap;
-use tokio_util::sync::CancellationToken;
 use tokio::sync::Mutex;
 
 use crate::{
     config::{dns::DNSConfig, tproxy::TProxyConfig},
-    monitor::bus::Bus,
-    monitor::events::Event,
+    monitor::{bus::Bus, events::Event},
     runtime::context::RuntimeContext,
 };
 
@@ -22,7 +18,7 @@ use super::{
     rules::{
         block_quic, ensure_base_stack, ignore_localhost, redirect_dns, redirect_tcp,
         remove_dns_redirect, remove_localhost_bypass, remove_table, remove_tcp_redirect,
-        unblock_quic,
+        unblock_quic, mark_bypass, remove_mark_bypass,
     },
 };
 
@@ -67,7 +63,6 @@ impl NetworkManager {
     }
 
     pub async fn enable(&self, capability: NetworkCapability) -> Result<()> {
-
         self.ensure_initialized()?;
 
         match capability {
@@ -134,6 +129,7 @@ impl NetworkManager {
                 }
 
                 NetworkCapability::TransparentProxy => {
+                    mark_bypass(self.bus.clone())?;
                     redirect_tcp(self.tproxy_config.clone(), self.bus.clone())?;
                 }
 
@@ -165,6 +161,7 @@ impl NetworkManager {
 
             NetworkCapability::TransparentProxy => {
                 remove_tcp_redirect(self.tproxy_config.clone(), self.bus.clone())?;
+                remove_mark_bypass(self.bus.clone())?;
             }
 
             NetworkCapability::DNSIntercept => {
@@ -183,36 +180,26 @@ impl NetworkManager {
         Ok(())
     }
 
-    pub async fn network_sub(
-        &self,
-        ctx: Arc<RuntimeContext>,
-        cancel: CancellationToken,
-    ) -> Result<()> {
+    pub async fn network_sub(&self, ctx: Arc<RuntimeContext>) -> Result<()> {
         let mut rx = ctx.bus.subscribe();
 
         self.ensure_initialized()?;
 
         loop {
-            tokio::select! {
-
-                _ = cancel.cancelled() => {
-                    remove_table(ctx.bus.clone())?;
-                    break;
+            match rx.recv().await {
+                Ok(Event::EnableCapability { cap, timestamp: _ }) => {
+                    self.enable(cap.clone()).await?;
                 }
 
-                msg = rx.recv() => {
-                    match msg {
+                Ok(Event::DisableCapability { cap, timestamp: _ }) => {
+                    self.disable(&cap).await?;
+                }
 
-                        Ok(Event::EnableCapability { cap, timestamp: _ }) => {
-                            self.enable(cap.clone()).await?;
-                            }
+                Ok(_) => {}
 
-                        Ok(Event::DisableCapability { cap, timestamp: _ }) => {
-                            self.disable(&cap).await?;
-                        }
-
-                        _ => {}
-                    }
+                Err(_) => {
+                    remove_table(ctx.bus.clone())?;
+                    break;
                 }
             }
         }
@@ -223,10 +210,9 @@ impl NetworkManager {
     pub fn spawn_network_manager(
         self: Arc<Self>,
         ctx: Arc<RuntimeContext>,
-        cancel: CancellationToken,
     ) {
         tokio::spawn(async move {
-            let _ = self.network_sub(ctx, cancel).await;
+            let _ = self.network_sub(ctx).await;
         });
     }
 

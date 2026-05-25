@@ -3,11 +3,14 @@ use std::sync::Arc;
 
 use super::handler::handle_client;
 use crate::config::proxy::ProxyConfig;
+use crate::monitor::error_ext::BusErrorExt;
 use crate::monitor::events::Event::{Error, ServiceStartup, ServiceShutdown};
 use crate::routing::manager::ConnectionManager;
+use crate::subsystems::rotation::route::RouteContext;
 use chrono::Local;
 use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
+use tokio::sync::RwLock;
 
 use crate::monitor::bus::Bus;
 
@@ -15,6 +18,7 @@ pub async fn start_socks5_server(
     config: Arc<ProxyConfig>,
     conn_map: Arc<ConnectionManager>,
     bus: Arc<Bus>,
+    current: Arc<RwLock<RouteContext>>,
     cancel: CancellationToken,
 ) -> Result<()> {
     let listener = TcpListener::bind(format!("{}:{}", config.host, config.port)).await?;
@@ -38,15 +42,16 @@ pub async fn start_socks5_server(
             }
 
             result = listener.accept() => {
-                let (stream, _) = result?;
+                let (stream, _) = result.emit_to_bus(&bus)?;
 
                 let conn_map_clone =
                     conn_map.clone();
 
                 let bus = bus.clone();
-
+                let route = current.read().await.clone();
                 tokio::spawn(async move {
                     if let Err(e) = handle_client(
+                        route,
                         stream,
                         conn_map_clone.clone(),
                         bus.clone(),

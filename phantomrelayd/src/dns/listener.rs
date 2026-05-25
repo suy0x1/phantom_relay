@@ -4,11 +4,13 @@ use crate::config::dns::DNSConfig;
 use crate::dns::cache::{CacheEntry, CacheKey};
 use crate::dns::parse::extract_cache_key;
 use crate::monitor::bus::Bus;
+use crate::monitor::error_ext::BusErrorExt;
 use crate::monitor::events::Event::{
     DNSCacheHit, DNSCacheMiss, DNSRequest, DisableCapability, EnableCapability, Error,
     ServiceStartup, ServiceShutdown
 };
-use crate::system::network::capablities::NetworkCapability::DNSIntercept;
+use crate::subsystems::network::capablities::NetworkCapability::DNSIntercept;
+use crate::subsystems::rotation::route::RouteContext;
 
 use chrono::Local;
 use dashmap::DashMap;
@@ -20,16 +22,18 @@ use std::time::Instant;
 use tokio::net::UdpSocket;
 use tokio::sync::{Notify, Semaphore, Mutex};
 use tokio_util::sync::CancellationToken;
+use tokio::sync::RwLock;
 
 pub async fn start_dns_listener(
     config: Arc<Mutex<DNSConfig>>,
     cache: Arc<DashMap<CacheKey, CacheEntry>>,
     bus: Arc<Bus>,
     inflight: Arc<DashMap<CacheKey, Arc<Notify>>>,
+    current: Arc<RwLock<RouteContext>>,
     cancel: CancellationToken,
 ) -> Result<()> {
     let (host, port, max_par) = {let cfg = config.lock().await; (cfg.host.clone(),cfg.port,cfg.max_parallel_dns_lookups)};
-    let socket = Arc::new(UdpSocket::bind(format!("{}:{}", host, port)).await?);
+    let socket = Arc::new(UdpSocket::bind(format!("{}:{}", host, port)).await.emit_to_bus(&bus)?);
 
     let limit = Arc::new(Semaphore::new(max_par));
 
@@ -68,13 +72,7 @@ pub async fn start_dns_listener(
                     Ok(v) => v,
 
                     Err(e) => {
-                        bus_clone.emit(Error {
-                            err: format!("{}", e),
-                            timestamp: Local::now()
-                                .format("%H:%M:%S")
-                                .to_string(),
-                        })?;
-
+                        let _ = Err::<(), _>(e).emit_to_bus(&bus_clone);
                         continue;
                     }
                 }
@@ -119,11 +117,8 @@ pub async fn start_dns_listener(
                 res[0] = packet[0];
                 res[1] = packet[1];
 
-                if let Err(e) = socket_clone.send_to(&res, client_addr).await {
-                    bus_clone.emit(Error {
-                        err: format!("{}", e),
-                        timestamp: Local::now().format("%H:%M:%S").to_string(),
-                    })?;
+                if let Err(_e) = socket_clone.send_to(&res, client_addr).await.emit_to_bus(&bus_clone) {
+                    // Error already emitted via emit_to_bus
                 }
 
                 continue;
@@ -161,11 +156,8 @@ pub async fn start_dns_listener(
                     res[0] = packet[0];
                     res[1] = packet[1];
 
-                    if let Err(e) = socket_clone.send_to(&res, client_addr).await {
-                        bus_clone.emit(Error {
-                            err: format!("{}", e),
-                            timestamp: Local::now().format("%H:%M:%S").to_string(),
-                        })?;
+                    if let Err(_e) = socket_clone.send_to(&res, client_addr).await.emit_to_bus(&bus_clone) {
+                        // Error already emitted via emit_to_bus
                     }
 
                     continue;
@@ -194,16 +186,18 @@ pub async fn start_dns_listener(
 
         let inflight_clone = inflight.clone();
 
-        let permit = limit.clone().acquire_owned().await?;
+        let permit = limit.clone().acquire_owned().await.emit_to_bus(&bus_clone)?;
 
+        let client = current.read().await.clone().client;
         tokio::spawn(async move {
             let _permit = permit;
-
             let response = match crate::dns::doh::forward_dns(
+                client,
                 packet,
                 cache_clone,
                 inflight_clone.clone(),
                 notify.clone(),
+                bus_clone.clone(),
             )
             .await
             {
@@ -223,11 +217,8 @@ pub async fn start_dns_listener(
                 }
             };
 
-            if let Err(e) = socket_clone.send_to(&response, client_addr).await {
-                let _ = bus_clone.emit(Error {
-                    err: format!("{}", e),
-                    timestamp: Local::now().format("%H:%M:%S").to_string(),
-                });
+            if let Err(_e) = socket_clone.send_to(&response, client_addr).await.emit_to_bus(&bus_clone) {
+                // Error already emitted via emit_to_bus
             }
         });
     }

@@ -8,8 +8,12 @@ use crate::{
 fn parse_service(service: &str) -> Result<Service> {
     match service {
         "logger" => Ok(Service::Logger),
+        
+        "proxy-collector" => Ok(Service::ProxyCollector),
 
         "dns" => Ok(Service::DNS),
+
+        "rotator" => Ok(Service::ProxyRotator),
 
         "cache-cleaner" => Ok(Service::CacheCleaner),
 

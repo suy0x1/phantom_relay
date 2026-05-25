@@ -3,8 +3,8 @@ use phantomrelayd::monitor::bus::Bus;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use phantomrelayd::runtime::startup::startup;
 use phantomrelayd::ipc::server::start_ipc_server;
+use phantomrelayd::runtime::startup::startup;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -20,6 +20,5 @@ async fn main() -> Result<()> {
     tokio::signal::ctrl_c().await?;
 
     runtime.lock().await.shutdown().await?;
-
     Ok(())
 }

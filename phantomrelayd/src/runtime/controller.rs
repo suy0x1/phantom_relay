@@ -1,4 +1,5 @@
-use crate::{runtime::context::RuntimeContext, system::network::manager::NetworkManager};
+use crate::subsystems::rotation::manager::RotationEngine;
+use crate::{runtime::context::RuntimeContext, subsystems::network::manager::NetworkManager};
 use anyhow::{Result, anyhow};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
@@ -11,8 +12,7 @@ use super::service::{Mode, Service, ServiceHandle};
 pub type ServiceFuture = Pin<Box<dyn Future<Output = Result<()>> + Send>>;
 
 use crate::runtime::factories::{
-    cleanup_service, dns_service, logger_service, metrics_service, preload_service, proxy_service,
-    refresh_service, tproxy_service,
+    cleanup_service, collector_service, dns_service, logger_service, metrics_service, preload_service, proxy_service, refresh_service, rotator_service, tproxy_service
 };
 
 pub type ServiceFn = Arc<dyn Fn(CancellationToken) -> ServiceFuture + Send + Sync>;
@@ -28,16 +28,18 @@ pub struct RuntimeController {
     pub services: DashMap<String, ServiceHandle>,
     pub modes: DashMap<String, bool>,
     pub networkmanager: Arc<NetworkManager>,
+    pub rotation_engine: Arc<RotationEngine>,
 }
 
 impl RuntimeController {
-    pub fn new(ctx: RuntimeContext) -> Self {
+    pub fn new(ctx: RuntimeContext, rotation_engine: Arc<RotationEngine>) -> Self {
         Self {
             networkmanager: Arc::new(NetworkManager::new(
                 ctx.bus.clone(),
                 ctx.dns_config.clone(),
                 ctx.tproxy_config.clone(),
             )),
+            rotation_engine: rotation_engine.clone(),
             ctx: Arc::new(ctx),
             services: DashMap::new(),
             modes: DashMap::new(),
@@ -115,7 +117,9 @@ impl RuntimeController {
     pub fn list_services(&self) -> Vec<ServiceStatus> {
         let services = vec![
             "logger",
+            "proxy_collector",
             "dns",
+            "proxy_rotator",
             "cache_preloader",
             "cache_cleaner",
             "cache_refresher",
@@ -155,8 +159,19 @@ impl RuntimeController {
                     return Ok(x);
                 }
 
+                Service::ProxyCollector => {
+                    let x =
+                        self.start_service("proxy_collector", collector_service(self.ctx.clone()))?;
+                    return Ok(x);
+                }
+
                 Service::DNS => {
                     let x = self.start_service("dns", dns_service(self.ctx.clone()))?;
+                    return Ok(x);
+                }
+
+                Service::ProxyRotator => {
+                    let x = self.start_service("proxy_rotator", rotator_service(self.ctx.clone()))?;
                     return Ok(x);
                 }
 
@@ -200,8 +215,18 @@ impl RuntimeController {
                     return Ok(x);
                 }
 
+                Service::ProxyCollector => {
+                    let x = self.stop_service("proxy_collector").await?;
+                    return Ok(x);
+                }
+
                 Service::DNS => {
                     let x = self.stop_service("dns").await?;
+                    return Ok(x);
+                }
+
+                Service::ProxyRotator => {
+                    let x = self.stop_service("proxy_rotator").await?;
                     return Ok(x);
                 }
 
@@ -244,12 +269,28 @@ impl RuntimeController {
                     return Ok(x);
                 }
 
+                Service::ProxyCollector => {
+                    self.stop_service("proxy_collector").await?;
+                    let mut x =
+                        self.start_service("proxy_collector", collector_service(self.ctx.clone()))?;
+                    x[0].name = x[0].name.replace(" started", " restarted");
+                    return Ok(x);
+                }
+
                 Service::DNS => {
                     self.stop_service("dns").await?;
                     let mut x = self.start_service("dns", dns_service(self.ctx.clone()))?;
                     x[0].name = x[0].name.replace(" started", " restarted");
                     return Ok(x);
                 }
+
+                Service::ProxyRotator => {
+                    self.stop_service("proxy_rotator").await?;
+                    let mut x = self.start_service("proxy_rotator", rotator_service(self.ctx.clone()))?;
+                    x[0].name = x[0].name.replace(" started", " restarted");
+                    return Ok(x);
+                }
+
                 Service::CachePreloader => {
                     self.stop_service("cache_preloader").await?;
                     let mut x =
@@ -298,27 +339,27 @@ impl RuntimeController {
 
             RuntimeCommands::Enable(m) => match m {
                 Mode::CacheReloader => {
-                        self.ctx.dns_config.lock().await.cache_saturation = true;
-                        self.modes.insert("dns turbo".to_string(), true);
-                        return Ok(vec![ServiceStatus {
-                            name: "turbo cache mode".to_string(),
-                            active: true,
-                            is_mode: true,
-                        }]);
-                },
+                    self.ctx.dns_config.lock().await.cache_saturation = true;
+                    self.modes.insert("dns turbo".to_string(), true);
+                    return Ok(vec![ServiceStatus {
+                        name: "turbo cache mode".to_string(),
+                        active: true,
+                        is_mode: true,
+                    }]);
+                }
             },
 
             RuntimeCommands::Disable(m) => match m {
                 Mode::CacheReloader => {
                     self.ctx.dns_config.lock().await.cache_saturation = false;
-                        self.modes.remove(&"dns turbo".to_string());
-                        return Ok(vec![ServiceStatus {
-                            name: "turbo cache mode".to_string(),
-                            active: false,
-                            is_mode: true,
-                        }]);
+                    self.modes.remove(&"dns turbo".to_string());
+                    return Ok(vec![ServiceStatus {
+                        name: "turbo cache mode".to_string(),
+                        active: false,
+                        is_mode: true,
+                    }]);
                 }
-            }
+            },
 
             RuntimeCommands::Status => {
                 let res = self.list_services();
