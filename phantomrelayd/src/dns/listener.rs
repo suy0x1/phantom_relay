@@ -5,19 +5,17 @@ use crate::dns::cache::{CacheEntry, CacheKey};
 use crate::dns::parse::extract_cache_key;
 use crate::monitor::bus::Bus;
 use crate::monitor::error_ext::BusErrorExt;
-use crate::monitor::events::Event::{
-    DNSCacheHit, DNSCacheMiss, DNSRequest, DisableCapability, EnableCapability, Error,
-    ServiceStartup, ServiceShutdown
+use crate::monitor::events::{
+    TelemetryEvent, CriticalEvent, LifecycleEvent, DiagnosticEvent
 };
 use crate::subsystems::network::capablities::NetworkCapability::DNSIntercept;
 use crate::subsystems::rotation::route::RouteContext;
 
-use chrono::Local;
 use dashmap::DashMap;
 
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Instant, SystemTime};
 
 use tokio::net::UdpSocket;
 use tokio::sync::{Notify, Semaphore, Mutex};
@@ -39,15 +37,15 @@ pub async fn start_dns_listener(
 
     let mut buf = [0u8; 4096];
 
-    bus.emit(ServiceStartup {
+    bus.emit_lifecycle(LifecycleEvent::ServiceStartup {
         service_name: "DNS server".to_string(),
         port: port,
-        timestamp: Local::now().format("%H:%M:%S").to_string(),
-    })?;
+        timestamp: SystemTime::now(),
+    }).await;
 
-    bus.emit(EnableCapability {
+    bus.emit_critical(CriticalEvent::EnableCapability {
         cap: DNSIntercept,
-        timestamp: Local::now().format("%H:%M:%S").to_string(),
+        timestamp: SystemTime::now(),
     })?;
     loop {
         let bus_clone = bus.clone();
@@ -55,15 +53,15 @@ pub async fn start_dns_listener(
         let (size, client_addr) = tokio::select! {
 
             _ = cancel.cancelled() => {
-                bus.emit(DisableCapability {
+                bus.emit_critical(CriticalEvent::DisableCapability {
                     cap: DNSIntercept,
-                    timestamp: Local::now().format("%H:%M:%S").to_string(),
+                    timestamp: SystemTime::now(),
                 })?;
-                bus.emit(ServiceShutdown {
+                bus.emit_lifecycle(LifecycleEvent::ServiceShutdown {
                     service_name: "DNS server".to_string(),
                     port: port,
-                    timestamp: Local::now().format("%H:%M:%S").to_string(),
-                })?;
+                    timestamp: SystemTime::now(),
+                }).await;
                 break;
             }
 
@@ -89,11 +87,11 @@ pub async fn start_dns_listener(
             }
         };
 
-        bus_clone.emit(DNSRequest {
+        bus_clone.emit_telemetry(TelemetryEvent::DNSRequest {
             domain: key.domain.clone(),
             resolver: IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
-            timestamp: Local::now().format("%H:%M:%S").to_string(),
-        })?;
+            timestamp: SystemTime::now(),
+        }).await;
 
         let socket_clone = socket.clone();
 
@@ -103,10 +101,10 @@ pub async fn start_dns_listener(
 
         if let Some(x) = cache.get(&key) {
             if Instant::now() < x.expires_at {
-                bus_clone.emit(DNSCacheHit {
+                bus_clone.emit_telemetry(TelemetryEvent::DNSCacheHit {
                     domain: key.domain.clone(),
-                    timestamp: Local::now().format("%H:%M:%S").to_string(),
-                })?;
+                    timestamp: SystemTime::now(),
+                }).await;
 
                 x.hits.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
@@ -142,10 +140,10 @@ pub async fn start_dns_listener(
 
             if let Some(x) = cache.get(&key) {
                 if Instant::now() < x.expires_at {
-                    bus_clone.emit(DNSCacheHit {
+                    bus_clone.emit_telemetry(TelemetryEvent::DNSCacheHit {
                         domain: key.domain.clone(),
-                        timestamp: Local::now().format("%H:%M:%S").to_string(),
-                    })?;
+                        timestamp: SystemTime::now(),
+                    }).await;
 
                     x.hits.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
@@ -173,10 +171,10 @@ pub async fn start_dns_listener(
          * REAL MISS
          */
 
-        bus_clone.emit(DNSCacheMiss {
+        bus_clone.emit_telemetry(TelemetryEvent::DNSCacheMiss {
             domain: key.domain.clone(),
-            timestamp: Local::now().format("%H:%M:%S").to_string(),
-        })?;
+            timestamp: SystemTime::now(),
+        }).await;
 
         let notify = Arc::new(Notify::new());
 
@@ -204,9 +202,9 @@ pub async fn start_dns_listener(
                 Ok(v) => v,
 
                 Err(e) => {
-                    let _ = bus_clone.emit(Error {
+                    bus_clone.emit_diagnostic(DiagnosticEvent::Error {
                         err: format!("{}", e),
-                        timestamp: Local::now().format("%H:%M:%S").to_string(),
+                        timestamp: SystemTime::now(),
                     });
 
                     inflight_clone.remove(&key);

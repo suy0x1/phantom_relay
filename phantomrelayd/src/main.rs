@@ -8,7 +8,7 @@ use phantomrelayd::runtime::startup::startup;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let bus = Arc::new(Bus::new(128));
+    let bus = Arc::new(Bus::new(128, 1024, 1024, 1024));
 
     let runtime = Arc::new(Mutex::new(startup(bus.clone()).await?));
 

@@ -23,7 +23,7 @@ pub fn metrics_service(ctx: Arc<RuntimeContext>) -> ServiceFn {
     Arc::new(move |cancel| {
         let ctx = ctx.clone();
 
-        Box::pin(async move { start_metrics(ctx.bus.clone(), cancel).await })
+        Box::pin(async move { start_metrics(ctx.metrics.clone(), ctx.bus.clone(), cancel).await })
     })
 }
 

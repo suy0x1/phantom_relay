@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use tokio::io::copy_bidirectional;
 use tokio::net::TcpStream;
-use chrono::Local;
+use std::time::SystemTime;
 
 use fast_socks5::{Socks5Command, server::Socks5ServerProtocol};
 
@@ -12,7 +12,7 @@ use crate::monitor::bus::Bus;
 use crate::routing::connect::connect_target;
 use crate::routing::manager::ConnectionManager;
 use crate::routing::connection::{ConnectionKey, ProxyConnection};
-use crate::monitor::events::Event::{ConnectionOpened, ConnectionClosed};
+use crate::monitor::events::TelemetryEvent;
 use crate::subsystems::rotation::route::RouteContext;
 use std::time::Instant;
 
@@ -47,25 +47,25 @@ pub async fn handle_client(
 
     let mut outbound = conn.stream;
 
-    bus.emit(ConnectionOpened {
+    bus.emit_telemetry(TelemetryEvent::ConnectionOpened {
         host: addr.ip(),
         port: addr.port(),
         proxy: conn.host.parse()?,
         proxy_port: conn.port,
-        timestamp: Local::now().format("%H:%M:%S").to_string(),
-    })?;
+        timestamp: SystemTime::now(),
+    }).await;
 
     let mut client = proto.reply_success(outbound.local_addr()?).await?;
 
     copy_bidirectional(&mut client, &mut outbound).await?;
 
-    bus.emit(ConnectionClosed {
+    bus.emit_telemetry(TelemetryEvent::ConnectionClosed {
         host: addr.ip(),
         port: addr.port(),
         proxy: conn.host.parse()?,
         proxy_port: conn.port,
-        timestamp: Local::now().format("%H:%M:%S").to_string(),
-    })?;
+        timestamp: SystemTime::now(),
+    }).await;
 
     map.connections.remove(&key);
 

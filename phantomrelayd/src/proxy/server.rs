@@ -1,13 +1,13 @@
 use anyhow::Result;
 use std::sync::Arc;
+use std::time::SystemTime;
 
 use super::handler::handle_client;
 use crate::config::proxy::ProxyConfig;
 use crate::monitor::error_ext::BusErrorExt;
-use crate::monitor::events::Event::{Error, ServiceStartup, ServiceShutdown};
+use crate::monitor::events::{LifecycleEvent, DiagnosticEvent};
 use crate::routing::manager::ConnectionManager;
 use crate::subsystems::rotation::route::RouteContext;
-use chrono::Local;
 use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
 use tokio::sync::RwLock;
@@ -23,21 +23,21 @@ pub async fn start_socks5_server(
 ) -> Result<()> {
     let listener = TcpListener::bind(format!("{}:{}", config.host, config.port)).await?;
 
-    bus.emit(ServiceStartup {
+    bus.emit_lifecycle(LifecycleEvent::ServiceStartup {
         service_name: "SOCKS5 Proxy Server".to_string(),
         port: config.port,
-        timestamp: Local::now().format("%H:%M:%S").to_string().to_string(),
-    })?;
+        timestamp: SystemTime::now(),
+    }).await;
 
     loop {
         tokio::select! {
 
             _ = cancel.cancelled() => {
-                bus.emit(ServiceShutdown {
+                bus.emit_lifecycle(LifecycleEvent::ServiceShutdown {
                     service_name: "SOCKS5 Proxy Server".to_string(),
                     port: config.port,
-                    timestamp: Local::now().format("%H:%M:%S").to_string().to_string(),
-                })?;
+                    timestamp: SystemTime::now(),
+                }).await;
                 break;
             }
 
@@ -58,12 +58,9 @@ pub async fn start_socks5_server(
                     )
                     .await
                     {
-                        let _ = bus.emit(Error {
+                        bus.emit_diagnostic(DiagnosticEvent::Error {
                             err: format!("{}", e),
-                            timestamp: Local::now()
-                                .format("%H:%M:%S")
-                                .to_string()
-                                .to_string(),
+                            timestamp: SystemTime::now(),
                         });
                     }
                 });

@@ -1,4 +1,4 @@
-use crate::monitor::events::Event::{LoadInitialProxy, RotateProxy};
+use crate::monitor::events::CriticalEvent;
 use crate::{
     collector::manager::HealthyProxy, runtime::context::RuntimeContext,
     subsystems::rotation::route::RouteContext,
@@ -44,12 +44,12 @@ impl RotationEngine {
         let ctx = ctx.clone();
         tokio::spawn(async move {
             loop {
-                let mut rx = ctx.bus.subscribe();
+                let mut rx = ctx.bus.subscribe_critical();
                 _ = match rx.recv().await {
-                    Ok(LoadInitialProxy { timestamp: _ }) => {
+                    Ok(CriticalEvent::LoadInitialProxy) => {
                         engine.rotate(ctx.healthy_proxies.clone()).await
                     }
-                    Ok(RotateProxy { timestamp: _ }) => {
+                    Ok(CriticalEvent::RotateProxy) => {
                         engine.rotate(ctx.healthy_proxies.clone()).await
                     }
                     _ => Ok(()),

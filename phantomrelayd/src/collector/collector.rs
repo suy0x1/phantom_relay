@@ -1,7 +1,7 @@
 use crate::monitor::bus::Bus;
-use crate::monitor::events::Event::Error;
+use crate::monitor::events::DiagnosticEvent;
 use anyhow::Result;
-use chrono::Local;
+use std::time::SystemTime;
 use reqwest::Client;
 use std::time::Duration;
 use tokio::time::sleep;
@@ -31,9 +31,9 @@ pub async fn get_proxy(bus: &Bus, cancel: CancellationToken) -> Result<Vec<Strin
                     }
 
                     Err(e) => {
-                        _ = bus.emit(Error {
+                        bus.emit_diagnostic(DiagnosticEvent::Error {
                             err: format!("Fetch attempt {} failed: {:#?}", attempt, e),
-                            timestamp: Local::now().format("%H:%M:%S").to_string()
+                            timestamp: SystemTime::now(),
                         });
 
                         if attempt < 3 {

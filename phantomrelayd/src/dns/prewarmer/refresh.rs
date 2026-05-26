@@ -3,12 +3,12 @@ use crate::dns::parse::extract_cache_key;
 use crate::dns::prewarmer::packet::build_dns_query;
 use crate::monitor::bus::Bus;
 use crate::monitor::error_ext::BusErrorExt;
-use crate::monitor::events::Event::{TaskShutdown, TaskStartup};
+use crate::monitor::events::LifecycleEvent;
 
 use crate::dns::cache::{CacheEntry, CacheKey};
 use crate::subsystems::rotation::route::RouteContext;
 use anyhow::Result;
-use chrono::Local;
+use std::time::SystemTime;
 use dashmap::DashMap;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
@@ -26,10 +26,10 @@ pub async fn start_cache_refresh(
     current: Arc<RwLock<RouteContext>>,
     cancel: CancellationToken,
 ) -> Result<()> {
-    let _ = bus.emit(TaskStartup {
+    bus.emit_lifecycle(LifecycleEvent::TaskStartup {
         task_name: "DNS Cache Refresher".to_string(),
-        timestamp: Local::now().format("%H:%M:%S").to_string(),
-    });
+        timestamp: SystemTime::now(),
+    }).await;
     let (cache_ref_sec, cs, mph, pd) = {
         let cfg = config.lock().await;
         (
@@ -46,10 +46,10 @@ pub async fn start_cache_refresh(
         tokio::select! {
 
             _ = cancel.cancelled() => {
-                let _ = bus.emit(TaskShutdown {
+                bus.emit_lifecycle(LifecycleEvent::TaskShutdown {
                     task_name: "DNS Cache Refresher".to_string(),
-                    timestamp: Local::now().format("%H:%M:%S").to_string(),
-                });
+                    timestamp: SystemTime::now(),
+                }).await;
                 break;
             }
 

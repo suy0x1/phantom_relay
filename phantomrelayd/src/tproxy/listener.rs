@@ -1,7 +1,7 @@
 use crate::config::tproxy::TProxyConfig;
 use crate::monitor::bus::Bus;
 use crate::monitor::error_ext::BusErrorExt;
-use crate::monitor::events::Event::{DisableCapability, EnableCapability, Error, ServiceStartup, ServiceShutdown};
+use crate::monitor::events::{CriticalEvent, LifecycleEvent, DiagnosticEvent};
 use crate::routing::manager::ConnectionManager;
 use crate::subsystems::network::capablities::NetworkCapability::{
     LocalhostBypass, QUICBlocking, TransparentProxy,
@@ -9,8 +9,8 @@ use crate::subsystems::network::capablities::NetworkCapability::{
 use crate::subsystems::rotation::route::RouteContext;
 use crate::tproxy::relay::handle_connection;
 use anyhow::Result;
-use chrono::Local;
 use std::sync::Arc;
+use std::time::SystemTime;
 use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
 use tokio::sync::RwLock;
@@ -26,47 +26,47 @@ pub async fn start_listener(
         .await
         .emit_to_bus(&bus)?;
 
-    bus.emit(ServiceStartup {
+    bus.emit_lifecycle(LifecycleEvent::ServiceStartup {
         service_name: "TCP Proxy Server".to_string(),
         port: config.port,
-        timestamp: Local::now().format("%H:%M:%S").to_string().to_string(),
-    })?;
+        timestamp: SystemTime::now(),
+    }).await;
 
-    bus.emit(EnableCapability {
+    bus.emit_critical(CriticalEvent::EnableCapability {
         cap: QUICBlocking,
-        timestamp: Local::now().format("%H:%M:%S").to_string().to_string(),
-    })?;
-    
-    bus.emit(EnableCapability {
-        cap: LocalhostBypass,
-        timestamp: Local::now().format("%H:%M:%S").to_string().to_string(),
+        timestamp: SystemTime::now(),
     })?;
 
-    bus.emit(EnableCapability {
+    bus.emit_critical(CriticalEvent::EnableCapability {
+        cap: LocalhostBypass,
+        timestamp: SystemTime::now(),
+    })?;
+
+    bus.emit_critical(CriticalEvent::EnableCapability {
         cap: TransparentProxy,
-        timestamp: Local::now().format("%H:%M:%S").to_string().to_string(),
+        timestamp: SystemTime::now(),
     })?;
 
     loop {
         tokio::select! {
             _ = cancel.cancelled() => {
-                bus.emit(DisableCapability {
+                bus.emit_critical(CriticalEvent::DisableCapability {
                     cap: TransparentProxy,
-                    timestamp: Local::now().format("%H:%M:%S").to_string().to_string(),
+                    timestamp: SystemTime::now(),
                 })?;
-                bus.emit(DisableCapability {
+                bus.emit_critical(CriticalEvent::DisableCapability {
                     cap: QUICBlocking,
-                    timestamp: Local::now().format("%H:%M:%S").to_string().to_string(),
+                    timestamp: SystemTime::now(),
                 })?;
-                bus.emit(DisableCapability {
+                bus.emit_critical(CriticalEvent::DisableCapability {
                     cap: LocalhostBypass,
-                    timestamp: Local::now().format("%H:%M:%S").to_string().to_string(),
+                    timestamp: SystemTime::now(),
                 })?;
-                bus.emit(ServiceShutdown {
+                bus.emit_lifecycle(LifecycleEvent::ServiceShutdown {
                     service_name: "TCP Proxy Server".to_string(),
                     port: config.port,
-                    timestamp: Local::now().format("%H:%M:%S").to_string().to_string(),
-                })?;
+                    timestamp: SystemTime::now(),
+                }).await;
                 break;
             }
 
@@ -85,12 +85,9 @@ pub async fn start_listener(
                     )
                     .await
                     {
-                        let _ = bus_clone.emit(Error {
+                        bus_clone.emit_diagnostic(DiagnosticEvent::Error {
                             err: format!("{}", e),
-                            timestamp: Local::now()
-                                .format("%H:%M:%S")
-                                .to_string()
-                                .to_string(),
+                            timestamp: SystemTime::now(),
                         });
                     }
                 });

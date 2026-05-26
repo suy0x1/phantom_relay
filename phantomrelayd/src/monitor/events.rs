@@ -1,108 +1,132 @@
 use std::net::IpAddr;
+use std::time::SystemTime;
 
 use crate::subsystems::network::capablities::NetworkCapability;
 
 #[derive(Debug, Clone)]
-pub enum Event {
-    ServiceStartup {
-        service_name: String,
-        port: u16,
-        timestamp: String,
+pub enum CriticalEvent {
+    RoutingDecision,
+
+    RotateProxy,
+
+    LoadInitialProxy,
+
+    EnableCapability {
+        cap: NetworkCapability,
+        timestamp: SystemTime,
     },
 
-    ServiceShutdown {
-        service_name: String,
-        port: u16,
-        timestamp: String,
+    DisableCapability {
+        cap: NetworkCapability,
+        timestamp: SystemTime,
     },
+
     NetworkChange {
         change: String,
-        timestamp: String,
+        timestamp: SystemTime,
     },
+}
 
+#[derive(Debug, Clone)]
+pub enum TelemetryEvent {
     ConnectionOpened {
         host: IpAddr,
         port: u16,
+
         proxy: IpAddr,
         proxy_port: u16,
-        timestamp: String,
+
+        timestamp: SystemTime,
     },
+
     ConnectionClosed {
         host: IpAddr,
         port: u16,
+
         proxy: IpAddr,
         proxy_port: u16,
-        timestamp: String,
-    },
 
-    DNSRequest {
-        domain: String,
-        resolver: IpAddr,
-        timestamp: String,
-    },
-    DNSCacheHit {
-        domain: String,
-        timestamp: String,
-    },
-    DNSCacheMiss {
-        domain: String,
-        timestamp: String,
+        timestamp: SystemTime,
     },
 
     ProxyConnected {
         host: IpAddr,
         port: u16,
-        timestamp: String
+
+        timestamp: SystemTime,
     },
+
     ProxyFailed {
         host: IpAddr,
         port: u16,
-        timestamp: String
+
+        timestamp: SystemTime,
     },
 
-    RoutingDecision,
+    DNSRequest {
+        domain: String,
+        resolver: IpAddr,
 
-    Error {
-        err: String,
-        timestamp: String
+        timestamp: SystemTime,
     },
 
-    DNSCacheCleanup {
-        entries_cleaned: usize,
-        timestamp: String,
+    DNSCacheHit {
+        domain: String,
+        timestamp: SystemTime,
+    },
+
+    DNSCacheMiss {
+        domain: String,
+        timestamp: SystemTime,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub enum LifecycleEvent {
+    ServiceStartup {
+        service_name: String,
+        port: u16,
+
+        timestamp: SystemTime,
+    },
+
+    ServiceShutdown {
+        service_name: String,
+        port: u16,
+
+        timestamp: SystemTime,
     },
 
     TaskStartup {
         task_name: String,
-        timestamp: String,
+
+        timestamp: SystemTime,
     },
 
     TaskShutdown {
         task_name: String,
-        timestamp: String,
+
+        timestamp: SystemTime,
     },
 
+    DNSCacheCleanup {
+        entries_cleaned: usize,
+
+        timestamp: SystemTime,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub enum DiagnosticEvent {
     Info {
         content: String,
-        timestamp: String,
+
+        timestamp: SystemTime,
     },
 
-    EnableCapability {
-        cap: NetworkCapability,
-        timestamp: String,
-    },
+    Error {
+        err: String,
 
-    DisableCapability {
-        cap: NetworkCapability,
-        timestamp: String,
+        timestamp: SystemTime,
     },
-
-    LoadInitialProxy {
-        timestamp: String,
-    },
-
-    RotateProxy {
-        timestamp: String,
-    },
-
 }

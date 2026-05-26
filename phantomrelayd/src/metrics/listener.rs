@@ -1,120 +1,258 @@
-use crate::metrics::metrics::Metrics;
-use crate::monitor::bus::Bus;
-use crate::monitor::events::Event;
-use anyhow::Result;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
+
+use anyhow::Result;
 use tokio::sync::broadcast;
-use tokio::time::{Duration, interval};
+use tokio::time::interval;
 use tokio_util::sync::CancellationToken;
 
-async fn record_metrics(metrics: &mut Metrics, event: &Event) {
+use crate::metrics::metrics::{Metrics, MetricsSnapshot};
+use crate::monitor::bus::Bus;
+use crate::monitor::events::{CriticalEvent, DiagnosticEvent, LifecycleEvent, TelemetryEvent};
+
+fn record_critical(metrics: &Metrics, event: &CriticalEvent) {
     match event {
-        Event::DNSRequest { .. } => {
-            metrics.dns_requests += 1;
-        }
+        CriticalEvent::RoutingDecision => metrics.routing_decision(),
 
-        Event::DNSCacheHit { .. } => {
-            metrics.dns_cache_hits += 1;
-        }
+        CriticalEvent::RotateProxy => metrics.rotate_proxy(),
 
-        Event::DNSCacheMiss { .. } => {
-            metrics.dns_cache_misses += 1;
-        }
+        CriticalEvent::LoadInitialProxy => metrics.load_initial_proxy(),
 
-        Event::ConnectionOpened { .. } => {
-            metrics.connections_opened += 1;
-        }
+        CriticalEvent::EnableCapability { .. } => metrics.capability_enabled(),
 
-        Event::ConnectionClosed { .. } => {
-            metrics.connections_closed += 1;
-        }
+        CriticalEvent::DisableCapability { .. } => metrics.capability_disabled(),
 
-        Event::ProxyConnected { .. } => {
-            metrics.proxy_connected += 1;
-        }
-
-        Event::ProxyFailed { .. } => {
-            metrics.proxy_failed += 1;
-        }
-
-        Event::Error { .. } => {
-            metrics.errors += 1;
-        }
-
-        _ => {}
+        CriticalEvent::NetworkChange { .. } => metrics.network_change(),
     }
 }
 
-async fn print_metrics(metrics: &Metrics) {
+fn record_telemetry(metrics: &Metrics, event: &TelemetryEvent) {
+    match event {
+        TelemetryEvent::ConnectionOpened { .. } => metrics.connection_opened(),
+
+        TelemetryEvent::ConnectionClosed { .. } => metrics.connection_closed(),
+
+        TelemetryEvent::ProxyConnected { .. } => metrics.proxy_connected(),
+
+        TelemetryEvent::ProxyFailed { .. } => metrics.proxy_failed(),
+
+        TelemetryEvent::DNSRequest { .. } => metrics.dns_request(),
+
+        TelemetryEvent::DNSCacheHit { .. } => metrics.dns_cache_hit(),
+
+        TelemetryEvent::DNSCacheMiss { .. } => metrics.dns_cache_miss(),
+    }
+}
+
+fn record_lifecycle(metrics: &Metrics, event: &LifecycleEvent) {
+    match event {
+        LifecycleEvent::ServiceStartup { .. } => metrics.service_startup(),
+
+        LifecycleEvent::ServiceShutdown { .. } => metrics.service_shutdown(),
+
+        LifecycleEvent::TaskStartup { .. } => metrics.task_startup(),
+
+        LifecycleEvent::TaskShutdown { .. } => metrics.task_shutdown(),
+
+        LifecycleEvent::DNSCacheCleanup {
+            entries_cleaned, ..
+        } => {
+            metrics.dns_cache_cleanup(*entries_cleaned);
+        }
+    }
+}
+
+fn record_diagnostic(metrics: &Metrics, event: &DiagnosticEvent) {
+    match event {
+        DiagnosticEvent::Info { .. } => metrics.info_event(),
+
+        DiagnosticEvent::Error { .. } => metrics.error(),
+    }
+}
+
+fn print_metrics(current: &MetricsSnapshot, previous: &MetricsSnapshot, elapsed: Duration) {
+    let secs = elapsed.as_secs_f64().max(0.001);
+    let rate = |now: u64, prev: u64| (now.saturating_sub(prev) as f64) / secs;
+
+    let total_cache = current.dns_cache_hits + current.dns_cache_misses;
+    let hit_rate = if total_cache > 0 {
+        (current.dns_cache_hits as f64 / total_cache as f64) * 100.0
+    } else {
+        0.0
+    };
+
     println!();
     println!("========== METRICS ==========");
 
-    println!("dns requests        : {}", metrics.dns_requests);
-    println!("dns cache hits      : {}", metrics.dns_cache_hits);
-    println!("dns cache misses    : {}", metrics.dns_cache_misses);
+    println!(
+        "services up/down    : {} / {}",
+        current.service_startups, current.service_shutdowns
+    );
+    println!(
+        "tasks up/down       : {} / {}",
+        current.task_startups, current.task_shutdowns
+    );
+    println!("network changes     : {}", current.network_changes);
 
-    let total_cache = metrics.dns_cache_hits + metrics.dns_cache_misses;
+    println!(
+        "connections opened  : {} ({:.2}/s)",
+        current.connections_opened,
+        rate(current.connections_opened, previous.connections_opened)
+    );
+    println!(
+        "connections closed  : {} ({:.2}/s)",
+        current.connections_closed,
+        rate(current.connections_closed, previous.connections_closed)
+    );
 
-    if total_cache > 0 {
-        let hit_rate = (metrics.dns_cache_hits as f64 / total_cache as f64) * 100.0;
+    println!(
+        "dns requests        : {} ({:.2}/s)",
+        current.dns_requests,
+        rate(current.dns_requests, previous.dns_requests)
+    );
+    println!(
+        "dns cache hits      : {} ({:.2}/s)",
+        current.dns_cache_hits,
+        rate(current.dns_cache_hits, previous.dns_cache_hits)
+    );
+    println!(
+        "dns cache misses    : {} ({:.2}/s)",
+        current.dns_cache_misses,
+        rate(current.dns_cache_misses, previous.dns_cache_misses)
+    );
+    println!("cache hit rate      : {:.2}%", hit_rate);
 
-        println!("cache hit rate      : {:.2}%", hit_rate);
-    }
+    println!(
+        "proxy connected     : {} ({:.2}/s)",
+        current.proxy_connected,
+        rate(current.proxy_connected, previous.proxy_connected)
+    );
+    println!(
+        "proxy failed        : {} ({:.2}/s)",
+        current.proxy_failed,
+        rate(current.proxy_failed, previous.proxy_failed)
+    );
 
-    println!("connections opened  : {}", metrics.connections_opened);
-    println!("connections closed  : {}", metrics.connections_closed);
+    println!(
+        "routing decisions   : {} ({:.2}/s)",
+        current.routing_decisions,
+        rate(current.routing_decisions, previous.routing_decisions)
+    );
+    println!(
+        "rotate proxy        : {} ({:.2}/s)",
+        current.rotate_proxy,
+        rate(current.rotate_proxy, previous.rotate_proxy)
+    );
+    println!(
+        "initial proxy loads : {} ({:.2}/s)",
+        current.load_initial_proxy,
+        rate(current.load_initial_proxy, previous.load_initial_proxy)
+    );
 
-    println!("proxy connected     : {}", metrics.proxy_connected);
-    println!("proxy failed        : {}", metrics.proxy_failed);
+    println!(
+        "cap enabled/disabled: {} / {}",
+        current.capability_enabled, current.capability_disabled
+    );
 
-    println!("errors              : {}", metrics.errors);
+    println!(
+        "info / errors       : {} / {}",
+        current.info_events, current.errors
+    );
+
+    println!("dns cleanup entries : {}", current.dns_cache_cleanup);
+
+    println!("lagged critical     : {}", current.lagged_critical);
+    println!("lagged telemetry    : {}", current.lagged_telemetry);
+    println!("lagged lifecycle    : {}", current.lagged_lifecycle);
+    println!("lagged diagnostic   : {}", current.lagged_diagnostic);
 
     println!("=============================");
     println!();
 }
 
-pub async fn start_metrics(bus: Arc<Bus>, cancel: CancellationToken) -> Result<()> {
-    let mut rx = bus.subscribe();
-
-    let mut metrics = Metrics::default();
+pub async fn start_metrics(
+    metrics: Arc<Metrics>,
+    bus: Arc<Bus>,
+    cancel: CancellationToken,
+) -> Result<()> {
+    let mut critical_rx = bus.subscribe_critical();
 
     let mut ticker = interval(Duration::from_secs(10));
 
+    let mut previous_snapshot = metrics.snapshot();
+    let mut previous_tick = Instant::now();
+
+    let mut critical_open = true;
+    let mut telemetry_open = true;
+    let mut lifecycle_open = true;
+    let mut diagnostic_open = true;
+
     loop {
         tokio::select! {
+            biased;
 
             _ = cancel.cancelled() => {
                 break;
             }
 
             _ = ticker.tick() => {
-                print_metrics(&metrics).await;
+                let now = Instant::now();
+                let current = metrics.snapshot();
+                let elapsed = now.duration_since(previous_tick);
+
+                print_metrics(&current, &previous_snapshot, elapsed);
+
+                previous_snapshot = current;
+                previous_tick = now;
             }
 
-            result = rx.recv() => {
+            result = critical_rx.recv(), if critical_open => {
                 match result {
-                    Ok(event) => {
-                        record_metrics(
-                            &mut metrics,
-                            &event,
-                        )
-                        .await;
+                    Ok(event) => record_critical(&metrics, &event),
+
+                    Err(broadcast::error::RecvError::Lagged(skipped)) => {
+                        metrics.lagged_critical(skipped);
                     }
 
-                    Err(
-                        broadcast::error::RecvError::Lagged(n)
-                    ) => {
-                        eprintln!(
-                            "metrics lagged {} events",
-                            n
-                        );
-                    }
-
-                    Err(e) => {
-                        eprintln!("{}", e);
+                    Err(broadcast::error::RecvError::Closed) => {
+                        critical_open = false;
                     }
                 }
             }
+
+            result = bus.telemetry_rx.recv(), if telemetry_open => {
+                match result {
+                    Ok(event) => record_telemetry(&metrics, &event),
+
+                    Err(_) => {
+                        telemetry_open = false;
+                    }
+                }
+            }
+
+            result = bus.lifecycle_rx.recv(), if lifecycle_open => {
+                match result {
+                    Ok(event) => record_lifecycle(&metrics, &event),
+
+                    Err(_) => {
+                        lifecycle_open = false;
+                    }
+                }
+            }
+
+            result = bus.diagnostic_rx.recv(), if diagnostic_open => {
+                match result {
+                    Ok(event) => record_diagnostic(&metrics, &event),
+
+                    Err(_) => {
+                        diagnostic_open = false;
+                    }
+                }
+            }
+        }
+
+        if !critical_open && !telemetry_open && !lifecycle_open && !diagnostic_open {
+            break;
         }
     }
 

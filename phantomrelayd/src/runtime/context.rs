@@ -10,6 +10,7 @@ use crate::config::proxy::ProxyConfig;
 use crate::config::rotation::RotationConfig;
 use crate::config::tproxy::TProxyConfig;
 use crate::dns::cache::{CacheEntry, CacheKey};
+use crate::metrics::metrics::Metrics;
 use crate::monitor::bus::Bus;
 use crate::routing::manager::ConnectionManager;
 use crate::subsystems::rotation::route::RouteContext;
@@ -17,6 +18,7 @@ use tokio::sync::RwLock;
 
 pub struct RuntimeContext {
     pub bus: Arc<Bus>,
+    pub metrics: Arc<Metrics>,
     pub rotation_config: Arc<RotationConfig>,
     pub dns_config: Arc<Mutex<DNSConfig>>,
     pub tproxy_config: Arc<TProxyConfig>,

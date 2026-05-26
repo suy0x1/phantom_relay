@@ -11,6 +11,7 @@ use crate::config::dns::DNSConfig;
 use crate::config::proxy::ProxyConfig;
 use crate::config::rotation::RotationConfig;
 use crate::config::tproxy::TProxyConfig;
+use crate::metrics::metrics::Metrics;
 use crate::monitor::bus::Bus;
 use crate::routing::manager::ConnectionManager;
 use crate::runtime::controller::RuntimeController;
@@ -21,6 +22,7 @@ pub async fn startup(bus: Arc<Bus>) -> Result<RuntimeController> {
     let current_route = Arc::new(RwLock::new(RouteContext::dummy()));
     let ctx = RuntimeContext {
         bus: bus.clone(),
+        metrics: Arc::new(Metrics::default()),
         rotation_config: Arc::new(RotationConfig::default()),
         dns_config: Arc::new(Mutex::new(DNSConfig::default())),
         tproxy_config: Arc::new(TProxyConfig::default()),

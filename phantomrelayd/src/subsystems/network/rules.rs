@@ -1,13 +1,13 @@
 use std::{collections::HashMap, process::Command, sync::Arc};
 
 use anyhow::{Result, anyhow};
-use chrono::Local;
+use std::time::SystemTime;
 use serde_json::Value;
 use tokio::sync::Mutex;
 
 use crate::{
     config::{dns::DNSConfig, tproxy::TProxyConfig},
-    monitor::{bus::Bus, error_ext::BusErrorExt, events::Event::NetworkChange},
+    monitor::{bus::Bus, error_ext::BusErrorExt, events::CriticalEvent},
 };
 
 const TABLE: &str = "phantomrelay";
@@ -20,9 +20,9 @@ const RULE_TCP: &str = "phantom_tcp_redirect";
 const RULE_MARK_BYPASS: &str = "phantom_mark_bypass";
 
 fn emit(bus: Arc<Bus>, change: &str) -> Result<()> {
-    bus.emit(NetworkChange {
+    bus.emit_critical(CriticalEvent::NetworkChange {
         change: change.to_string(),
-        timestamp: Local::now().format("%H:%M:%S").to_string(),
+        timestamp: SystemTime::now(),
     })?;
 
     Ok(())

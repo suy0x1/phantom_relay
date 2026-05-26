@@ -1,14 +1,14 @@
 use crate::{
     config::collector::CollectorConfig,
     monitor::bus::Bus,
-    monitor::events::Event::{Error, TaskShutdown, TaskStartup},
+    monitor::events::{LifecycleEvent, DiagnosticEvent},
     collector::manager::HealthyProxy,
 };
 
 use super::collector::get_proxy;
 use super::health::get_healthy_proxies;
 use anyhow::Result;
-use chrono::Local;
+use std::time::SystemTime;
 use dashmap::DashMap;
 use reqwest::Client;
 use std::{sync::Arc, time::Duration};
@@ -35,20 +35,20 @@ pub async fn collect_healthy_proxy(
     healthy_proxies: Arc<DashMap<HealthyProxy, Client>>,
     cancel: CancellationToken,
 ) -> Result<()> {
-    _ = bus.emit(TaskStartup {
+    bus.emit_lifecycle(LifecycleEvent::TaskStartup {
         task_name: "proxy_collector".to_string(),
-        timestamp: Local::now().format("%H:%M:%S").to_string(),
-    });
+        timestamp: SystemTime::now(),
+    }).await;
 
     let mut ticker = interval(Duration::from_mins(45));
 
     loop {
         tokio::select! {
             _ = cancel.cancelled() => {
-                _ = bus.emit(TaskShutdown {
+                bus.emit_lifecycle(LifecycleEvent::TaskShutdown {
                     task_name: "proxy_collector".to_string(),
-                    timestamp: Local::now().format("%H:%M:%S").to_string()
-                });
+                    timestamp: SystemTime::now(),
+                }).await;
 
                 break;
             }
@@ -58,9 +58,9 @@ pub async fn collect_healthy_proxy(
                     Ok(p) => p,
 
                     Err(e) => {
-                        _ = bus.emit(Error {
+                        bus.emit_diagnostic(DiagnosticEvent::Error {
                             err: format!("{:#?}", e),
-                            timestamp: Local::now().format("%H:%M:%S").to_string()
+                            timestamp: SystemTime::now(),
                         });
 
                         continue;

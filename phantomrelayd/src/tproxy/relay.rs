@@ -1,10 +1,10 @@
 use crate::monitor::bus::Bus;
 use crate::monitor::error_ext::BusErrorExt;
-use crate::monitor::events::Event::{ConnectionClosed, ConnectionOpened};
+use crate::monitor::events::TelemetryEvent;
 use crate::subsystems::rotation::route::RouteContext;
 use anyhow::Result;
-use chrono::Local;
 use std::net::IpAddr;
+use std::time::SystemTime;
 use std::{sync::Arc, time::Instant};
 use tokio::{io::copy_bidirectional, net::TcpStream};
 
@@ -43,21 +43,21 @@ pub async fn handle_connection(
 
     let mut remote = conn.stream;
 
-    bus.emit(ConnectionOpened {
+    bus.emit_telemetry(TelemetryEvent::ConnectionOpened {
         host: IpAddr::V4(*original.ip()),
         port: original.port(),
         proxy: IpAddr::V4(conn.host.parse().emit_to_bus(&bus)?),
         proxy_port: conn.port,
-        timestamp: Local::now().format("%H:%M:%S").to_string().to_string(),
-    })?;
+        timestamp: SystemTime::now(),
+    }).await;
     copy_bidirectional(&mut client, &mut remote).await.emit_to_bus(&bus)?;
-    bus.emit(ConnectionClosed {
+    bus.emit_telemetry(TelemetryEvent::ConnectionClosed {
         host: IpAddr::V4(*original.ip()),
         port: original.port(),
         proxy: IpAddr::V4(conn.host.parse().emit_to_bus(&bus)?),
         proxy_port: conn.port,
-        timestamp: Local::now().format("%H:%M:%S").to_string().to_string(),
-    })?;
+        timestamp: SystemTime::now(),
+    }).await;
     map.connections.remove(&key);
     Ok(())
 }

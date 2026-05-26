@@ -1,4 +1,4 @@
-use crate::monitor::events::Event::{LoadInitialProxy, RotateProxy};
+use crate::monitor::events::CriticalEvent;
 use crate::{
     collector::manager::HealthyProxy, config::rotation::RotationConfig, monitor::bus::Bus,
 };
@@ -9,7 +9,6 @@ use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 use tokio::time::sleep;
 use tokio::time::Duration;
-use chrono::Local;
 use anyhow::Result;
 
 pub async fn start_rotating(
@@ -28,7 +27,7 @@ pub async fn start_rotating(
             _ = sleep(Duration::from_secs(1)) => {
 
                 if healthy_proxies.len() >= 1 {
-                    _ = bus.emit(LoadInitialProxy { timestamp: Local::now().format("%H:%M:%S").to_string()});
+                    bus.emit_critical(CriticalEvent::LoadInitialProxy)?;
                     break;
                 }
             }
@@ -46,7 +45,7 @@ pub async fn start_rotating(
 
             _ = ticker.tick() => {
 
-                _ = bus.emit(RotateProxy { timestamp: Local::now().format("%H:%M:%S").to_string()});
+                bus.emit_critical(CriticalEvent::RotateProxy)?;
             }
         }
     }

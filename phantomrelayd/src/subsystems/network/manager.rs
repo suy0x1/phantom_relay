@@ -9,7 +9,7 @@ use tokio::sync::Mutex;
 
 use crate::{
     config::{dns::DNSConfig, tproxy::TProxyConfig},
-    monitor::{bus::Bus, events::Event},
+    monitor::{bus::Bus, events::CriticalEvent},
     runtime::context::RuntimeContext,
 };
 
@@ -181,17 +181,17 @@ impl NetworkManager {
     }
 
     pub async fn network_sub(&self, ctx: Arc<RuntimeContext>) -> Result<()> {
-        let mut rx = ctx.bus.subscribe();
+        let mut rx = ctx.bus.subscribe_critical();
 
         self.ensure_initialized()?;
 
         loop {
             match rx.recv().await {
-                Ok(Event::EnableCapability { cap, timestamp: _ }) => {
+                Ok(CriticalEvent::EnableCapability { cap, timestamp: _ }) => {
                     self.enable(cap.clone()).await?;
                 }
 
-                Ok(Event::DisableCapability { cap, timestamp: _ }) => {
+                Ok(CriticalEvent::DisableCapability { cap, timestamp: _ }) => {
                     self.disable(&cap).await?;
                 }
 

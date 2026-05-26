@@ -5,15 +5,15 @@ use dashmap::DashMap;
 use tokio::sync::Mutex;
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
+use std::time::SystemTime;
 
 use crate::config::dns::DNSConfig;
 use crate::dns::cache::{CacheEntry, CacheKey};
 use crate::dns::doh::forward_dns;
 use crate::dns::prewarmer::packet::build_dns_query;
 use crate::monitor::bus::Bus;
-use crate::monitor::events::Event::{Info, TaskShutdown, TaskStartup};
+use crate::monitor::events::{LifecycleEvent, DiagnosticEvent};
 use crate::subsystems::rotation::route::RouteContext;
-use chrono::Local;
 use tokio::sync::RwLock;
 
 pub async fn preload_dns_entries(
@@ -24,17 +24,17 @@ pub async fn preload_dns_entries(
     current: Arc<RwLock<RouteContext>>,
     cancel: CancellationToken,
 ) -> Result<()> {
-    let _ = bus.emit(TaskStartup {
+    bus.emit_lifecycle(LifecycleEvent::TaskStartup {
         task_name: "DNS Cache Preloader".to_string(),
-        timestamp: Local::now().format("%H:%M:%S").to_string(),
-    });
+        timestamp: SystemTime::now(),
+    }).await;
 
     for domain in &config.lock().await.prewarm_domains {
         if cancel.is_cancelled() {
-            let _ = bus.emit(TaskShutdown {
+            bus.emit_lifecycle(LifecycleEvent::TaskShutdown {
                 task_name: "DNS Cache Preloader".to_string(),
-                timestamp: Local::now().format("%H:%M:%S").to_string(),
-            });
+                timestamp: SystemTime::now(),
+            }).await;
             break;
         }
 
@@ -89,10 +89,9 @@ pub async fn preload_dns_entries(
         .await;
     }
 
-    let _ = bus.emit(Info {
+    bus.emit_diagnostic(DiagnosticEvent::Info {
         content: format!("preloaded {} cache entires", cache.len()),
-
-        timestamp: Local::now().format("%H:%M:%S").to_string(),
+        timestamp: SystemTime::now(),
     });
 
     Ok(())
