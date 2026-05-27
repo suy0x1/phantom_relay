@@ -10,6 +10,7 @@ use crate::monitor::error_ext::BusErrorExt;
 use dashmap::DashMap;
 use std::sync::Arc;
 
+/// Forwards DNS query to DoH resolver, caches response, and notifies waiters.
 pub async fn forward_dns(
     client: Client,
     packet: Vec<u8>,

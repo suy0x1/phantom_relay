@@ -170,6 +170,7 @@ fn print_metrics(current: &MetricsSnapshot, previous: &MetricsSnapshot, elapsed:
     println!();
 }
 
+/// Aggregates events from the bus into metrics and periodically prints statistics.
 pub async fn start_metrics(
     metrics: Arc<Metrics>,
     bus: Arc<Bus>,
@@ -177,9 +178,16 @@ pub async fn start_metrics(
 ) -> Result<()> {
     let mut critical_rx = bus.subscribe_critical();
 
+    let mut lifecycle_rx = bus.subscribe_lifecycle();
+
+    let mut diagnostic_rx = bus.subscribe_diagnostic();
+
+    let telemetry_rx = bus.telemetry_receiver();
+
     let mut ticker = interval(Duration::from_secs(10));
 
     let mut previous_snapshot = metrics.snapshot();
+
     let mut previous_tick = Instant::now();
 
     let mut critical_open = true;
@@ -197,32 +205,65 @@ pub async fn start_metrics(
 
             _ = ticker.tick() => {
                 let now = Instant::now();
-                let current = metrics.snapshot();
-                let elapsed = now.duration_since(previous_tick);
 
-                print_metrics(&current, &previous_snapshot, elapsed);
+                let current =
+                    metrics.snapshot();
 
-                previous_snapshot = current;
+                let elapsed =
+                    now.duration_since(
+                        previous_tick
+                    );
+
+                print_metrics(
+                    &current,
+                    &previous_snapshot,
+                    elapsed,
+                );
+
+                previous_snapshot =
+                    current;
+
                 previous_tick = now;
             }
 
-            result = critical_rx.recv(), if critical_open => {
+            result = critical_rx.recv(),
+            if critical_open => {
                 match result {
-                    Ok(event) => record_critical(&metrics, &event),
-
-                    Err(broadcast::error::RecvError::Lagged(skipped)) => {
-                        metrics.lagged_critical(skipped);
+                    Ok(event) => {
+                        record_critical(
+                            &metrics,
+                            &event,
+                        );
                     }
 
-                    Err(broadcast::error::RecvError::Closed) => {
+                    Err(
+                        broadcast::error::RecvError::Lagged(
+                            skipped,
+                        )
+                    ) => {
+                        metrics
+                            .lagged_critical(
+                                skipped
+                            );
+                    }
+
+                    Err(
+                        broadcast::error::RecvError::Closed
+                    ) => {
                         critical_open = false;
                     }
                 }
             }
 
-            result = bus.telemetry_rx.recv(), if telemetry_open => {
+            result = telemetry_rx.recv(),
+            if telemetry_open => {
                 match result {
-                    Ok(event) => record_telemetry(&metrics, &event),
+                    Ok(event) => {
+                        record_telemetry(
+                            &metrics,
+                            &event,
+                        );
+                    }
 
                     Err(_) => {
                         telemetry_open = false;
@@ -230,21 +271,59 @@ pub async fn start_metrics(
                 }
             }
 
-            result = bus.lifecycle_rx.recv(), if lifecycle_open => {
+            result = lifecycle_rx.recv(),
+            if lifecycle_open => {
                 match result {
-                    Ok(event) => record_lifecycle(&metrics, &event),
+                    Ok(event) => {
+                        record_lifecycle(
+                            &metrics,
+                            &event,
+                        );
+                    }
 
-                    Err(_) => {
+                    Err(
+                        broadcast::error::RecvError::Lagged(
+                            skipped,
+                        )
+                    ) => {
+                        metrics
+                            .lagged_lifecycle(
+                                skipped
+                            );
+                    }
+
+                    Err(
+                        broadcast::error::RecvError::Closed
+                    ) => {
                         lifecycle_open = false;
                     }
                 }
             }
 
-            result = bus.diagnostic_rx.recv(), if diagnostic_open => {
+            result = diagnostic_rx.recv(),
+            if diagnostic_open => {
                 match result {
-                    Ok(event) => record_diagnostic(&metrics, &event),
+                    Ok(event) => {
+                        record_diagnostic(
+                            &metrics,
+                            &event,
+                        );
+                    }
 
-                    Err(_) => {
+                    Err(
+                        broadcast::error::RecvError::Lagged(
+                            skipped,
+                        )
+                    ) => {
+                        metrics
+                            .lagged_diagnostic(
+                                skipped
+                            );
+                    }
+
+                    Err(
+                        broadcast::error::RecvError::Closed
+                    ) => {
                         diagnostic_open = false;
                     }
                 }

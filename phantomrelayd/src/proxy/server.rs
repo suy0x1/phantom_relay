@@ -5,15 +5,16 @@ use std::time::SystemTime;
 use super::handler::handle_client;
 use crate::config::proxy::ProxyConfig;
 use crate::monitor::error_ext::BusErrorExt;
-use crate::monitor::events::{LifecycleEvent, DiagnosticEvent};
+use crate::monitor::events::{DiagnosticEvent, LifecycleEvent};
 use crate::routing::manager::ConnectionManager;
 use crate::subsystems::rotation::route::RouteContext;
 use tokio::net::TcpListener;
-use tokio_util::sync::CancellationToken;
 use tokio::sync::RwLock;
+use tokio_util::sync::CancellationToken;
 
 use crate::monitor::bus::Bus;
 
+/// Starts SOCKS5 proxy server accepting connections and delegating to handler. Respects cancellation token.
 pub async fn start_socks5_server(
     config: Arc<ProxyConfig>,
     conn_map: Arc<ConnectionManager>,
@@ -23,21 +24,21 @@ pub async fn start_socks5_server(
 ) -> Result<()> {
     let listener = TcpListener::bind(format!("{}:{}", config.host, config.port)).await?;
 
-    bus.emit_lifecycle(LifecycleEvent::ServiceStartup {
+    _ = bus.emit_lifecycle(LifecycleEvent::ServiceStartup {
         service_name: "SOCKS5 Proxy Server".to_string(),
         port: config.port,
         timestamp: SystemTime::now(),
-    }).await;
+    });
 
     loop {
         tokio::select! {
 
             _ = cancel.cancelled() => {
-                bus.emit_lifecycle(LifecycleEvent::ServiceShutdown {
+                _ = bus.emit_lifecycle(LifecycleEvent::ServiceShutdown {
                     service_name: "SOCKS5 Proxy Server".to_string(),
                     port: config.port,
                     timestamp: SystemTime::now(),
-                }).await;
+                });
                 break;
             }
 
@@ -58,7 +59,7 @@ pub async fn start_socks5_server(
                     )
                     .await
                     {
-                        bus.emit_diagnostic(DiagnosticEvent::Error {
+                        _ = bus.emit_diagnostic(DiagnosticEvent::Error {
                             err: format!("{}", e),
                             timestamp: SystemTime::now(),
                         });

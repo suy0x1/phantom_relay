@@ -8,16 +8,17 @@ use crate::monitor::events::LifecycleEvent;
 use crate::dns::cache::{CacheEntry, CacheKey};
 use crate::subsystems::rotation::route::RouteContext;
 use anyhow::Result;
-use std::time::SystemTime;
 use dashmap::DashMap;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Instant;
+use std::time::SystemTime;
 use tokio::sync::RwLock;
 use tokio::sync::{Mutex, Notify};
 use tokio::time::{Duration, interval};
 use tokio_util::sync::CancellationToken;
 
+/// Periodically refreshes DNS cache entries before expiration, prioritizing frequently accessed and prewarmed domains.
 pub async fn start_cache_refresh(
     config: Arc<Mutex<DNSConfig>>,
     bus: Arc<Bus>,
@@ -26,10 +27,10 @@ pub async fn start_cache_refresh(
     current: Arc<RwLock<RouteContext>>,
     cancel: CancellationToken,
 ) -> Result<()> {
-    bus.emit_lifecycle(LifecycleEvent::TaskStartup {
+    _ = bus.emit_lifecycle(LifecycleEvent::TaskStartup {
         task_name: "DNS Cache Refresher".to_string(),
         timestamp: SystemTime::now(),
-    }).await;
+    });
     let (cache_ref_sec, cs, mph, pd) = {
         let cfg = config.lock().await;
         (
@@ -46,10 +47,10 @@ pub async fn start_cache_refresh(
         tokio::select! {
 
             _ = cancel.cancelled() => {
-                bus.emit_lifecycle(LifecycleEvent::TaskShutdown {
+                _ = bus.emit_lifecycle(LifecycleEvent::TaskShutdown {
                     task_name: "DNS Cache Refresher".to_string(),
                     timestamp: SystemTime::now(),
-                }).await;
+                });
                 break;
             }
 

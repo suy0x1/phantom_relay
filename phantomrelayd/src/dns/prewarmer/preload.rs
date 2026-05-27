@@ -2,20 +2,21 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use dashmap::DashMap;
+use std::time::SystemTime;
 use tokio::sync::Mutex;
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
-use std::time::SystemTime;
 
 use crate::config::dns::DNSConfig;
 use crate::dns::cache::{CacheEntry, CacheKey};
 use crate::dns::doh::forward_dns;
 use crate::dns::prewarmer::packet::build_dns_query;
 use crate::monitor::bus::Bus;
-use crate::monitor::events::{LifecycleEvent, DiagnosticEvent};
+use crate::monitor::events::{DiagnosticEvent, LifecycleEvent};
 use crate::subsystems::rotation::route::RouteContext;
 use tokio::sync::RwLock;
 
+/// Pre-resolves configured domains (A and AAAA records) into cache before queries arrive.
 pub async fn preload_dns_entries(
     config: Arc<Mutex<DNSConfig>>,
     bus: Arc<Bus>,
@@ -24,17 +25,17 @@ pub async fn preload_dns_entries(
     current: Arc<RwLock<RouteContext>>,
     cancel: CancellationToken,
 ) -> Result<()> {
-    bus.emit_lifecycle(LifecycleEvent::TaskStartup {
+    _ = bus.emit_lifecycle(LifecycleEvent::TaskStartup {
         task_name: "DNS Cache Preloader".to_string(),
         timestamp: SystemTime::now(),
-    }).await;
+    });
 
     for domain in &config.lock().await.prewarm_domains {
         if cancel.is_cancelled() {
-            bus.emit_lifecycle(LifecycleEvent::TaskShutdown {
+            _ = bus.emit_lifecycle(LifecycleEvent::TaskShutdown {
                 task_name: "DNS Cache Preloader".to_string(),
                 timestamp: SystemTime::now(),
-            }).await;
+            });
             break;
         }
 
@@ -89,7 +90,7 @@ pub async fn preload_dns_entries(
         .await;
     }
 
-    bus.emit_diagnostic(DiagnosticEvent::Info {
+    _ = bus.emit_diagnostic(DiagnosticEvent::Info {
         content: format!("preloaded {} cache entires", cache.len()),
         timestamp: SystemTime::now(),
     });

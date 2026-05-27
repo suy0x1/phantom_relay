@@ -99,12 +99,13 @@ fn log_diagnostic(event: DiagnosticEvent) {
     }
 }
 
+/// Subscribes to bus events and logs them to stdout. Respects cancellation token.
 pub async fn start_logger(bus: Arc<Bus>, cancel: CancellationToken) -> Result<()> {
     let mut critical_rx = bus.subscribe_critical();
 
-    let lifecycle_rx = bus.lifecycle_receiver();
+    let mut lifecycle_rx = bus.subscribe_lifecycle();
 
-    let diagnostic_rx = bus.diagnostic_receiver();
+    let mut diagnostic_rx = bus.subscribe_diagnostic();
 
     let mut critical_open = true;
     let mut lifecycle_open = true;

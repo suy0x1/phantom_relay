@@ -1,6 +1,7 @@
 use crate::dns::cache::CacheKey;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
+/// Extracts domain name, query type, and class from a DNS packet.
 pub fn extract_cache_key(packet: &[u8]) -> Option<CacheKey> {
     if packet.len() < 17 {
         return None;
@@ -50,6 +51,7 @@ pub fn extract_cache_key(packet: &[u8]) -> Option<CacheKey> {
     })
 }
 
+/// Skips over a DNS name field, handling compression pointers and label lengths.
 fn skip_name(packet: &[u8], pos: &mut usize) -> Option<()> {
     loop {
         let len = *packet.get(*pos)?;
@@ -71,6 +73,7 @@ fn skip_name(packet: &[u8], pos: &mut usize) -> Option<()> {
     }
 }
 
+/// Extracts the minimum TTL from answer records in a DNS response packet.
 pub fn extract_min_ttl(packet: &[u8]) -> Option<u32> {
     if packet.len() < 12 {
         return None;
@@ -137,6 +140,7 @@ pub fn extract_min_ttl(packet: &[u8]) -> Option<u32> {
     min_ttl
 }
 
+/// Extracts all A and AAAA (IPv4 and IPv6) address records from DNS response packet.
 pub fn extract_ips(packet: &[u8]) -> Vec<IpAddr> {
     let mut ips = Vec::new();
 
@@ -172,15 +176,13 @@ pub fn extract_ips(packet: &[u8]) -> Vec<IpAddr> {
             return ips;
         }
 
-        let rr_type =
-            u16::from_be_bytes([packet[pos], packet[pos + 1]]);
+        let rr_type = u16::from_be_bytes([packet[pos], packet[pos + 1]]);
 
         pos += 2; // TYPE
         pos += 2; // CLASS
         pos += 4; // TTL
 
-        let rdlength =
-            u16::from_be_bytes([packet[pos], packet[pos + 1]]) as usize;
+        let rdlength = u16::from_be_bytes([packet[pos], packet[pos + 1]]) as usize;
 
         pos += 2;
 

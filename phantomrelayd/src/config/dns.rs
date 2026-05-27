@@ -30,7 +30,7 @@ impl DNSConfig {
                 "mobile.events.data.microsoft.com".to_string(),
                 "main.vscode-cdn.net".to_string(),
                 "cdn.discordapp.com".to_string(),
-            ]
+            ],
         }
     }
 }

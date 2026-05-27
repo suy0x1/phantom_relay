@@ -1,7 +1,6 @@
 pub struct CollectorConfig {
     pub total_workers: usize,
     pub latency: u128,
-
 }
 
 impl CollectorConfig {

@@ -10,6 +10,7 @@ use crate::{
     runtime::controller::RuntimeController,
 };
 
+/// Starts the IPC server listening on Unix socket. Accepts client requests and forwards to runtime controller.
 pub async fn start_ipc_server(runtime: Arc<Mutex<RuntimeController>>) -> Result<()> {
     let _ = std::fs::remove_file("/run/phantomrelay.sock");
     let listener = UnixListener::bind("/run/phantomrelay.sock")?;

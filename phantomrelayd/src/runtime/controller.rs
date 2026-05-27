@@ -12,7 +12,8 @@ use super::service::{Mode, Service, ServiceHandle};
 pub type ServiceFuture = Pin<Box<dyn Future<Output = Result<()>> + Send>>;
 
 use crate::runtime::factories::{
-    cleanup_service, collector_service, dns_service, logger_service, metrics_service, preload_service, proxy_service, refresh_service, rotator_service, tproxy_service
+    cleanup_service, collector_service, dns_service, logger_service, metrics_service,
+    preload_service, proxy_service, refresh_service, rotator_service, tproxy_service,
 };
 
 pub type ServiceFn = Arc<dyn Fn(CancellationToken) -> ServiceFuture + Send + Sync>;
@@ -32,6 +33,7 @@ pub struct RuntimeController {
 }
 
 impl RuntimeController {
+    /// Creates a new runtime controller with network and rotation managers.
     pub fn new(ctx: RuntimeContext, rotation_engine: Arc<RotationEngine>) -> Self {
         Self {
             networkmanager: Arc::new(NetworkManager::new(
@@ -46,6 +48,7 @@ impl RuntimeController {
         }
     }
 
+    /// Spawns and registers a service task with cancellation token.
     fn start_service(&self, name: &str, service: ServiceFn) -> Result<Vec<ServiceStatus>> {
         if self.services.contains_key(name) {
             return Err(anyhow!("service already running"));
@@ -71,6 +74,7 @@ impl RuntimeController {
         }])
     }
 
+    /// Cancels and removes a service task from tracking.
     async fn stop_service(&self, name: &str) -> Result<Vec<ServiceStatus>> {
         let (_, handle) = self
             .services
@@ -88,6 +92,7 @@ impl RuntimeController {
         }])
     }
 
+    /// Cancels and awaits all running services. Blocks until all shutdown.
     pub async fn shutdown(&self) -> Result<Vec<ServiceStatus>> {
         let services: Vec<String> = self
             .services
@@ -110,10 +115,12 @@ impl RuntimeController {
         }])
     }
 
+    /// Checks if a service or mode is currently running.
     pub fn is_running(&self, name: &str) -> bool {
         self.services.contains_key(name)
     }
 
+    /// Returns status of all registered services and modes.
     pub fn list_services(&self) -> Vec<ServiceStatus> {
         let services = vec![
             "logger",
@@ -151,6 +158,7 @@ impl RuntimeController {
         status
     }
 
+    /// Handles runtime commands: start, stop, restart services; enable/disable modes; shutdown.
     pub async fn handle_commands(&mut self, cmd: RuntimeCommands) -> Result<Vec<ServiceStatus>> {
         match cmd {
             RuntimeCommands::Start(service) => match service {
@@ -166,12 +174,16 @@ impl RuntimeController {
                 }
 
                 Service::DNS => {
+                    if self.ctx.healthy_proxies.len() == 0 {
+                        return Err(anyhow!("no proxies marked healthy"));
+                    }
                     let x = self.start_service("dns", dns_service(self.ctx.clone()))?;
                     return Ok(x);
                 }
 
                 Service::ProxyRotator => {
-                    let x = self.start_service("proxy_rotator", rotator_service(self.ctx.clone()))?;
+                    let x =
+                        self.start_service("proxy_rotator", rotator_service(self.ctx.clone()))?;
                     return Ok(x);
                 }
 
@@ -194,11 +206,17 @@ impl RuntimeController {
                 }
 
                 Service::TProxy => {
+                    if self.ctx.healthy_proxies.len() == 0 {
+                        return Err(anyhow!("no proxies marked healthy"));
+                    }
                     let x = self.start_service("tproxy", tproxy_service(self.ctx.clone()))?;
                     return Ok(x);
                 }
 
                 Service::Proxy => {
+                    if self.ctx.healthy_proxies.len() == 0 {
+                        return Err(anyhow!("no proxies marked healthy"));
+                    }
                     let x = self.start_service("proxy", proxy_service(self.ctx.clone()))?;
                     return Ok(x);
                 }
@@ -278,6 +296,9 @@ impl RuntimeController {
                 }
 
                 Service::DNS => {
+                    if self.ctx.healthy_proxies.len() == 0 {
+                        return Err(anyhow!("no proxies marked healthy"));
+                    }
                     self.stop_service("dns").await?;
                     let mut x = self.start_service("dns", dns_service(self.ctx.clone()))?;
                     x[0].name = x[0].name.replace(" started", " restarted");
@@ -286,7 +307,8 @@ impl RuntimeController {
 
                 Service::ProxyRotator => {
                     self.stop_service("proxy_rotator").await?;
-                    let mut x = self.start_service("proxy_rotator", rotator_service(self.ctx.clone()))?;
+                    let mut x =
+                        self.start_service("proxy_rotator", rotator_service(self.ctx.clone()))?;
                     x[0].name = x[0].name.replace(" started", " restarted");
                     return Ok(x);
                 }
@@ -316,6 +338,9 @@ impl RuntimeController {
                 }
 
                 Service::TProxy => {
+                    if self.ctx.healthy_proxies.len() == 0 {
+                        return Err(anyhow!("no proxies marked healthy"));
+                    }
                     self.stop_service("tproxy").await?;
                     let mut x = self.start_service("tproxy", tproxy_service(self.ctx.clone()))?;
                     x[0].name = x[0].name.replace(" started", " restarted");
@@ -323,6 +348,9 @@ impl RuntimeController {
                 }
 
                 Service::Proxy => {
+                    if self.ctx.healthy_proxies.len() == 0 {
+                        return Err(anyhow!("no proxies marked healthy"));
+                    }
                     self.stop_service("proxy").await?;
                     let mut x = self.start_service("proxy", proxy_service(self.ctx.clone()))?;
                     x[0].name = x[0].name.replace(" started", " restarted");

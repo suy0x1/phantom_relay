@@ -1,39 +1,17 @@
 use crate::monitor::events::CriticalEvent;
-use crate::{
-    collector::manager::HealthyProxy, config::rotation::RotationConfig, monitor::bus::Bus,
-};
-use dashmap::DashMap;
-use reqwest::Client;
-use tokio::time::interval;
-use std::sync::Arc;
-use tokio_util::sync::CancellationToken;
-use tokio::time::sleep;
-use tokio::time::Duration;
+use crate::{config::rotation::RotationConfig, monitor::bus::Bus};
 use anyhow::Result;
+use std::sync::Arc;
+use tokio::time::Duration;
+use tokio::time::interval;
+use tokio_util::sync::CancellationToken;
 
+/// Periodically emits proxy rotation signals on configured interval. Used to cycle through available proxies.
 pub async fn start_rotating(
     config: Arc<RotationConfig>,
     bus: Arc<Bus>,
-    healthy_proxies: Arc<DashMap<HealthyProxy, Client>>,
     cancel: CancellationToken,
-) -> Result<()>{
-    loop {
-        tokio::select! {
-
-            _ = cancel.cancelled() => {
-                return Ok(());
-            }
-
-            _ = sleep(Duration::from_secs(1)) => {
-
-                if healthy_proxies.len() >= 1 {
-                    bus.emit_critical(CriticalEvent::LoadInitialProxy)?;
-                    break;
-                }
-            }
-        }
-    }
-
+) -> Result<()> {
     let mut ticker = interval(Duration::from_secs(config.rotate_sec));
 
     loop {

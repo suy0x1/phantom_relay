@@ -17,6 +17,7 @@ use crate::{
     tproxy::original_dst::get_original_dst,
 };
 
+/// Handles a transparent proxy connection, retrieves original destination, bridges through proxy, and emits telemetry.
 pub async fn handle_connection(
     current: RouteContext,
     mut client: TcpStream,
@@ -30,9 +31,14 @@ pub async fn handle_connection(
         dst_port: original.port(),
     };
 
-    let conn = connect_target(current, &original.ip().to_string(), original.port(), bus.clone())
-        .await
-        .emit_to_bus(&bus)?;
+    let conn = connect_target(
+        current,
+        &original.ip().to_string(),
+        original.port(),
+        bus.clone(),
+    )
+    .await
+    .emit_to_bus(&bus)?;
 
     let proxy_used = ProxyConnection {
         started: Instant::now(),
@@ -49,15 +55,19 @@ pub async fn handle_connection(
         proxy: IpAddr::V4(conn.host.parse().emit_to_bus(&bus)?),
         proxy_port: conn.port,
         timestamp: SystemTime::now(),
-    }).await;
-    copy_bidirectional(&mut client, &mut remote).await.emit_to_bus(&bus)?;
+    })
+    .await;
+    copy_bidirectional(&mut client, &mut remote)
+        .await
+        .emit_to_bus(&bus)?;
     bus.emit_telemetry(TelemetryEvent::ConnectionClosed {
         host: IpAddr::V4(*original.ip()),
         port: original.port(),
         proxy: IpAddr::V4(conn.host.parse().emit_to_bus(&bus)?),
         proxy_port: conn.port,
         timestamp: SystemTime::now(),
-    }).await;
+    })
+    .await;
     map.connections.remove(&key);
     Ok(())
 }

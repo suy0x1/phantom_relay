@@ -2,20 +2,21 @@ use anyhow::Result;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use std::time::SystemTime;
 use tokio::io::copy_bidirectional;
 use tokio::net::TcpStream;
-use std::time::SystemTime;
 
 use fast_socks5::{Socks5Command, server::Socks5ServerProtocol};
 
 use crate::monitor::bus::Bus;
-use crate::routing::connect::connect_target;
-use crate::routing::manager::ConnectionManager;
-use crate::routing::connection::{ConnectionKey, ProxyConnection};
 use crate::monitor::events::TelemetryEvent;
+use crate::routing::connect::connect_target;
+use crate::routing::connection::{ConnectionKey, ProxyConnection};
+use crate::routing::manager::ConnectionManager;
 use crate::subsystems::rotation::route::RouteContext;
 use std::time::Instant;
 
+/// Handles a single SOCKS5 client connection, bridging to target via proxy.
 pub async fn handle_client(
     current: RouteContext,
     stream: TcpStream,
@@ -53,7 +54,8 @@ pub async fn handle_client(
         proxy: conn.host.parse()?,
         proxy_port: conn.port,
         timestamp: SystemTime::now(),
-    }).await;
+    })
+    .await;
 
     let mut client = proto.reply_success(outbound.local_addr()?).await?;
 
@@ -65,7 +67,8 @@ pub async fn handle_client(
         proxy: conn.host.parse()?,
         proxy_port: conn.port,
         timestamp: SystemTime::now(),
-    }).await;
+    })
+    .await;
 
     map.connections.remove(&key);
 

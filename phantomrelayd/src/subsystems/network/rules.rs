@@ -1,8 +1,8 @@
 use std::{collections::HashMap, process::Command, sync::Arc};
 
 use anyhow::{Result, anyhow};
-use std::time::SystemTime;
 use serde_json::Value;
+use std::time::SystemTime;
 use tokio::sync::Mutex;
 
 use crate::{
@@ -106,6 +106,7 @@ fn delete_rule_by_comment(bus: Arc<Bus>, comment: &str) -> Result<()> {
     Ok(())
 }
 
+/// Creates the phantomrelay netfilter table.
 pub fn create_table(bus: Arc<Bus>) -> Result<()> {
     run_nft(bus.clone(), &["add", "table", "inet", TABLE])?;
 
@@ -114,6 +115,7 @@ pub fn create_table(bus: Arc<Bus>) -> Result<()> {
     Ok(())
 }
 
+/// Creates the output NAT chain for traffic interception rules.
 pub fn create_nat_chain(bus: Arc<Bus>) -> Result<()> {
     run_nft(
         bus.clone(),
@@ -128,6 +130,7 @@ pub fn create_nat_chain(bus: Arc<Bus>) -> Result<()> {
     Ok(())
 }
 
+/// Sets up base netfilter infrastructure (table and NAT chain).
 pub fn ensure_base_stack(bus: Arc<Bus>) -> Result<()> {
     create_table(bus.clone())?;
     create_nat_chain(bus.clone())?;
@@ -135,6 +138,7 @@ pub fn ensure_base_stack(bus: Arc<Bus>) -> Result<()> {
     Ok(())
 }
 
+/// Adds rule to block QUIC traffic (UDP port 443).
 pub fn block_quic(bus: Arc<Bus>) -> Result<()> {
     run_nft(
         bus.clone(),
@@ -149,6 +153,7 @@ pub fn block_quic(bus: Arc<Bus>) -> Result<()> {
     Ok(())
 }
 
+/// Adds rule to bypass localhost traffic (127.0.0.0/8).
 pub fn ignore_localhost(bus: Arc<Bus>) -> Result<()> {
     run_nft(
         bus.clone(),
@@ -172,6 +177,7 @@ pub fn ignore_localhost(bus: Arc<Bus>) -> Result<()> {
     Ok(())
 }
 
+/// Adds rule to bypass traffic marked with 0x1.
 pub fn mark_bypass(bus: Arc<Bus>) -> Result<()> {
     run_nft(
         bus.clone(),
@@ -195,6 +201,7 @@ pub fn mark_bypass(bus: Arc<Bus>) -> Result<()> {
     Ok(())
 }
 
+/// Removes mark bypass rule.
 pub fn remove_mark_bypass(bus: Arc<Bus>) -> Result<()> {
     delete_rule_by_comment(bus.clone(), RULE_MARK_BYPASS)?;
 
@@ -203,6 +210,7 @@ pub fn remove_mark_bypass(bus: Arc<Bus>) -> Result<()> {
     Ok(())
 }
 
+/// Adds rule to redirect DNS traffic (UDP port 53) to configured listener port.
 pub async fn redirect_dns(config: Arc<Mutex<DNSConfig>>, bus: Arc<Bus>) -> Result<()> {
     let port = config.lock().await.port;
 
@@ -230,6 +238,7 @@ pub async fn redirect_dns(config: Arc<Mutex<DNSConfig>>, bus: Arc<Bus>) -> Resul
     Ok(())
 }
 
+/// Adds rule to redirect TCP traffic (except to tproxy port) to transparent proxy.
 pub fn redirect_tcp(config: Arc<TProxyConfig>, bus: Arc<Bus>) -> Result<()> {
     run_nft(
         bus.clone(),
@@ -256,6 +265,7 @@ pub fn redirect_tcp(config: Arc<TProxyConfig>, bus: Arc<Bus>) -> Result<()> {
     Ok(())
 }
 
+/// Removes QUIC block rule.
 pub fn unblock_quic(bus: Arc<Bus>) -> Result<()> {
     delete_rule_by_comment(bus.clone(), RULE_QUIC)?;
 
@@ -264,6 +274,7 @@ pub fn unblock_quic(bus: Arc<Bus>) -> Result<()> {
     Ok(())
 }
 
+/// Removes localhost bypass rule.
 pub fn remove_localhost_bypass(bus: Arc<Bus>) -> Result<()> {
     delete_rule_by_comment(bus.clone(), RULE_LOCALHOST)?;
 
@@ -272,6 +283,7 @@ pub fn remove_localhost_bypass(bus: Arc<Bus>) -> Result<()> {
     Ok(())
 }
 
+/// Removes DNS redirect rule.
 pub async fn remove_dns_redirect(_config: Arc<Mutex<DNSConfig>>, bus: Arc<Bus>) -> Result<()> {
     delete_rule_by_comment(bus.clone(), RULE_DNS)?;
 
@@ -280,6 +292,7 @@ pub async fn remove_dns_redirect(_config: Arc<Mutex<DNSConfig>>, bus: Arc<Bus>) 
     Ok(())
 }
 
+/// Removes TCP redirect rule.
 pub fn remove_tcp_redirect(_config: Arc<TProxyConfig>, bus: Arc<Bus>) -> Result<()> {
     delete_rule_by_comment(bus.clone(), RULE_TCP)?;
 
@@ -288,6 +301,7 @@ pub fn remove_tcp_redirect(_config: Arc<TProxyConfig>, bus: Arc<Bus>) -> Result<
     Ok(())
 }
 
+/// Removes NAT chain (flushes and deletes).
 pub fn remove_nat_chain(bus: Arc<Bus>) -> Result<()> {
     run_nft(bus.clone(), &["flush", "chain", "inet", TABLE, CHAIN])?;
 
@@ -298,6 +312,7 @@ pub fn remove_nat_chain(bus: Arc<Bus>) -> Result<()> {
     Ok(())
 }
 
+/// Removes the phantomrelay netfilter table.
 pub fn remove_table(bus: Arc<Bus>) -> Result<()> {
     run_nft(bus.clone(), &["delete", "table", "inet", TABLE])?;
 

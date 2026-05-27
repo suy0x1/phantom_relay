@@ -10,5 +10,4 @@ pub struct ConnectionKey {
 pub struct ProxyConnection {
     pub started: Instant,
     pub proxy: String,
-    
 }

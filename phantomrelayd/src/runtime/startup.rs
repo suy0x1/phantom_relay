@@ -18,6 +18,7 @@ use crate::runtime::controller::RuntimeController;
 use crate::subsystems::rotation::manager::RotationEngine;
 use crate::subsystems::rotation::route::RouteContext;
 
+/// Initializes runtime controller with default configs, metrics, and spawns background managers.
 pub async fn startup(bus: Arc<Bus>) -> Result<RuntimeController> {
     let current_route = Arc::new(RwLock::new(RouteContext::dummy()));
     let ctx = RuntimeContext {

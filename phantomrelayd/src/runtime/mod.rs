@@ -1,7 +1,7 @@
-pub mod startup;
-pub mod signal;
-pub mod service;
 pub mod commands;
+pub mod context;
 pub mod controller;
 pub mod factories;
-pub mod context;
+pub mod service;
+pub mod signal;
+pub mod startup;

@@ -1,18 +1,23 @@
 use crate::{
-    config::collector::CollectorConfig,
-    monitor::bus::Bus,
-    monitor::events::{LifecycleEvent, DiagnosticEvent},
     collector::manager::HealthyProxy,
+    config::collector::CollectorConfig,
+    monitor::{
+        bus::Bus,
+        events::{CriticalEvent, DiagnosticEvent, LifecycleEvent},
+    },
 };
 
 use super::collector::get_proxy;
 use super::health::get_healthy_proxies;
 use anyhow::Result;
-use std::time::SystemTime;
 use dashmap::DashMap;
 use reqwest::Client;
+use std::time::SystemTime;
 use std::{sync::Arc, time::Duration};
-use tokio::{sync::Mutex, time::interval};
+use tokio::{
+    sync::Mutex,
+    time::{interval, sleep},
+};
 use tokio_util::sync::CancellationToken;
 
 fn divide_round_robin(items: Vec<String>, n: usize) -> Vec<Vec<String>> {
@@ -29,26 +34,27 @@ fn divide_round_robin(items: Vec<String>, n: usize) -> Vec<Vec<String>> {
     pools
 }
 
+/// Periodically fetches available proxies and validates them in parallel, updating healthy proxy pool.
 pub async fn collect_healthy_proxy(
     config: Arc<Mutex<CollectorConfig>>,
     bus: Arc<Bus>,
     healthy_proxies: Arc<DashMap<HealthyProxy, Client>>,
     cancel: CancellationToken,
 ) -> Result<()> {
-    bus.emit_lifecycle(LifecycleEvent::TaskStartup {
+    _ = bus.emit_lifecycle(LifecycleEvent::TaskStartup {
         task_name: "proxy_collector".to_string(),
         timestamp: SystemTime::now(),
-    }).await;
+    });
 
     let mut ticker = interval(Duration::from_mins(45));
 
     loop {
         tokio::select! {
             _ = cancel.cancelled() => {
-                bus.emit_lifecycle(LifecycleEvent::TaskShutdown {
+                _ = bus.emit_lifecycle(LifecycleEvent::TaskShutdown {
                     task_name: "proxy_collector".to_string(),
                     timestamp: SystemTime::now(),
-                }).await;
+                });
 
                 break;
             }
@@ -58,7 +64,7 @@ pub async fn collect_healthy_proxy(
                     Ok(p) => p,
 
                     Err(e) => {
-                        bus.emit_diagnostic(DiagnosticEvent::Error {
+                        _ = bus.emit_diagnostic(DiagnosticEvent::Error {
                             err: format!("{:#?}", e),
                             timestamp: SystemTime::now(),
                         });
@@ -87,6 +93,14 @@ pub async fn collect_healthy_proxy(
                         ).await;
                     });
                 }
+                let hp = healthy_proxies.clone();
+                let bus = bus.clone();
+                tokio::spawn(async move {
+                    while hp.len() == 0 {
+                        sleep(Duration::from_secs(1)).await;
+                    }
+                    _ = bus.emit_critical(CriticalEvent::LoadInitialProxy);
+                }).await?;
             }
         }
     }

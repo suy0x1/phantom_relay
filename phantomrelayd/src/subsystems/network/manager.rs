@@ -16,9 +16,9 @@ use crate::{
 use super::{
     capablities::NetworkCapability,
     rules::{
-        block_quic, ensure_base_stack, ignore_localhost, redirect_dns, redirect_tcp,
-        remove_dns_redirect, remove_localhost_bypass, remove_table, remove_tcp_redirect,
-        unblock_quic, mark_bypass, remove_mark_bypass,
+        block_quic, ensure_base_stack, ignore_localhost, mark_bypass, redirect_dns, redirect_tcp,
+        remove_dns_redirect, remove_localhost_bypass, remove_mark_bypass, remove_table,
+        remove_tcp_redirect, unblock_quic,
     },
 };
 
@@ -50,6 +50,7 @@ impl NetworkManager {
         }
     }
 
+    /// Sets up base network rules for routing and interception if not already done.
     pub fn ensure_initialized(&self) -> Result<()> {
         if self.initialized.load(Ordering::Relaxed) {
             return Ok(());
@@ -62,6 +63,7 @@ impl NetworkManager {
         Ok(())
     }
 
+    /// Enables a network capability (DNS intercept, QUIC blocking, etc.) and applies rules.
     pub async fn enable(&self, capability: NetworkCapability) -> Result<()> {
         self.ensure_initialized()?;
 
@@ -145,6 +147,7 @@ impl NetworkManager {
         Ok(())
     }
 
+    /// Disables a network capability and removes its applied rules.
     pub async fn disable(&self, capability: &NetworkCapability) -> Result<()> {
         if !self.enabled.contains_key(capability) {
             return Ok(());
@@ -180,6 +183,7 @@ impl NetworkManager {
         Ok(())
     }
 
+    /// Subscribes to network changes and applies needed capability adjustments.
     pub async fn network_sub(&self, ctx: Arc<RuntimeContext>) -> Result<()> {
         let mut rx = ctx.bus.subscribe_critical();
 
@@ -207,15 +211,14 @@ impl NetworkManager {
         Ok(())
     }
 
-    pub fn spawn_network_manager(
-        self: Arc<Self>,
-        ctx: Arc<RuntimeContext>,
-    ) {
+    /// Spawns the network manager as a background task to handle network changes.
+    pub fn spawn_network_manager(self: Arc<Self>, ctx: Arc<RuntimeContext>) {
         tokio::spawn(async move {
             let _ = self.network_sub(ctx).await;
         });
     }
 
+    /// Removes all applied network rules and capabilities.
     pub fn cleanup_all(&self) -> Result<()> {
         self.enabled.clear();
 

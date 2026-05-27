@@ -1,5 +1,6 @@
 use rand::random;
 
+/// Constructs a DNS query packet for a domain with specified query type (e.g., 1 for A, 28 for AAAA).
 pub fn build_dns_query(domain: &str, qtype: u16) -> Vec<u8> {
     let mut packet = Vec::with_capacity(512);
     packet.extend_from_slice(&random::<u16>().to_be_bytes());

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::runtime::commands::RuntimeCommands;
-use crate::runtime::controller::ServiceStatus; 
+use crate::runtime::controller::ServiceStatus;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum IPCRequest {

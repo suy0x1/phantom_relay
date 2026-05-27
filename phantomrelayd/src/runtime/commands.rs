@@ -1,5 +1,5 @@
+use crate::runtime::service::{Mode, Service};
 use serde::{Deserialize, Serialize};
-use crate::runtime::service::{Service, Mode};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum RuntimeCommands {

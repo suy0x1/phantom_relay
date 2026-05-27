@@ -20,3 +20,13 @@ serde = { version = "1", features = ["derive"] }
 futures = "0.3"
 kanal = "0.1"
 crossbeam-utils = "0.8"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+incremental = false
+debug = false
+overflow-checks = false

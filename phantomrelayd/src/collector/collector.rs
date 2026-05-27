@@ -1,12 +1,13 @@
 use crate::monitor::bus::Bus;
 use crate::monitor::events::DiagnosticEvent;
 use anyhow::Result;
-use std::time::SystemTime;
 use reqwest::Client;
 use std::time::Duration;
+use std::time::SystemTime;
 use tokio::time::sleep;
 use tokio_util::sync::CancellationToken;
 
+/// Fetches SOCKS5 proxies from public API with retry logic. Returns list of proxy addresses.
 pub async fn get_proxy(bus: &Bus, cancel: CancellationToken) -> Result<Vec<String>> {
     let client = Client::builder().timeout(Duration::from_secs(5)).build()?;
 
@@ -31,7 +32,7 @@ pub async fn get_proxy(bus: &Bus, cancel: CancellationToken) -> Result<Vec<Strin
                     }
 
                     Err(e) => {
-                        bus.emit_diagnostic(DiagnosticEvent::Error {
+                        _ = bus.emit_diagnostic(DiagnosticEvent::Error {
                             err: format!("Fetch attempt {} failed: {:#?}", attempt, e),
                             timestamp: SystemTime::now(),
                         });

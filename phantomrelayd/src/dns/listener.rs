@@ -5,9 +5,7 @@ use crate::dns::cache::{CacheEntry, CacheKey};
 use crate::dns::parse::extract_cache_key;
 use crate::monitor::bus::Bus;
 use crate::monitor::error_ext::BusErrorExt;
-use crate::monitor::events::{
-    TelemetryEvent, CriticalEvent, LifecycleEvent, DiagnosticEvent
-};
+use crate::monitor::events::{CriticalEvent, DiagnosticEvent, LifecycleEvent, TelemetryEvent};
 use crate::subsystems::network::capablities::NetworkCapability::DNSIntercept;
 use crate::subsystems::rotation::route::RouteContext;
 
@@ -18,10 +16,11 @@ use std::sync::Arc;
 use std::time::{Instant, SystemTime};
 
 use tokio::net::UdpSocket;
-use tokio::sync::{Notify, Semaphore, Mutex};
-use tokio_util::sync::CancellationToken;
 use tokio::sync::RwLock;
+use tokio::sync::{Mutex, Notify, Semaphore};
+use tokio_util::sync::CancellationToken;
 
+/// Starts DNS listener on configured host/port, intercepts requests, caches responses, and enforces query limits.
 pub async fn start_dns_listener(
     config: Arc<Mutex<DNSConfig>>,
     cache: Arc<DashMap<CacheKey, CacheEntry>>,
@@ -30,18 +29,25 @@ pub async fn start_dns_listener(
     current: Arc<RwLock<RouteContext>>,
     cancel: CancellationToken,
 ) -> Result<()> {
-    let (host, port, max_par) = {let cfg = config.lock().await; (cfg.host.clone(),cfg.port,cfg.max_parallel_dns_lookups)};
-    let socket = Arc::new(UdpSocket::bind(format!("{}:{}", host, port)).await.emit_to_bus(&bus)?);
+    let (host, port, max_par) = {
+        let cfg = config.lock().await;
+        (cfg.host.clone(), cfg.port, cfg.max_parallel_dns_lookups)
+    };
+    let socket = Arc::new(
+        UdpSocket::bind(format!("{}:{}", host, port))
+            .await
+            .emit_to_bus(&bus)?,
+    );
 
     let limit = Arc::new(Semaphore::new(max_par));
 
     let mut buf = [0u8; 4096];
 
-    bus.emit_lifecycle(LifecycleEvent::ServiceStartup {
+    _ = bus.emit_lifecycle(LifecycleEvent::ServiceStartup {
         service_name: "DNS server".to_string(),
         port: port,
         timestamp: SystemTime::now(),
-    }).await;
+    });
 
     bus.emit_critical(CriticalEvent::EnableCapability {
         cap: DNSIntercept,
@@ -57,11 +63,11 @@ pub async fn start_dns_listener(
                     cap: DNSIntercept,
                     timestamp: SystemTime::now(),
                 })?;
-                bus.emit_lifecycle(LifecycleEvent::ServiceShutdown {
+                _ = bus.emit_lifecycle(LifecycleEvent::ServiceShutdown {
                     service_name: "DNS server".to_string(),
                     port: port,
                     timestamp: SystemTime::now(),
-                }).await;
+                });
                 break;
             }
 
@@ -87,11 +93,13 @@ pub async fn start_dns_listener(
             }
         };
 
-        bus_clone.emit_telemetry(TelemetryEvent::DNSRequest {
-            domain: key.domain.clone(),
-            resolver: IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
-            timestamp: SystemTime::now(),
-        }).await;
+        bus_clone
+            .emit_telemetry(TelemetryEvent::DNSRequest {
+                domain: key.domain.clone(),
+                resolver: IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
+                timestamp: SystemTime::now(),
+            })
+            .await;
 
         let socket_clone = socket.clone();
 
@@ -101,10 +109,12 @@ pub async fn start_dns_listener(
 
         if let Some(x) = cache.get(&key) {
             if Instant::now() < x.expires_at {
-                bus_clone.emit_telemetry(TelemetryEvent::DNSCacheHit {
-                    domain: key.domain.clone(),
-                    timestamp: SystemTime::now(),
-                }).await;
+                bus_clone
+                    .emit_telemetry(TelemetryEvent::DNSCacheHit {
+                        domain: key.domain.clone(),
+                        timestamp: SystemTime::now(),
+                    })
+                    .await;
 
                 x.hits.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
@@ -115,7 +125,11 @@ pub async fn start_dns_listener(
                 res[0] = packet[0];
                 res[1] = packet[1];
 
-                if let Err(_e) = socket_clone.send_to(&res, client_addr).await.emit_to_bus(&bus_clone) {
+                if let Err(_e) = socket_clone
+                    .send_to(&res, client_addr)
+                    .await
+                    .emit_to_bus(&bus_clone)
+                {
                     // Error already emitted via emit_to_bus
                 }
 
@@ -140,10 +154,12 @@ pub async fn start_dns_listener(
 
             if let Some(x) = cache.get(&key) {
                 if Instant::now() < x.expires_at {
-                    bus_clone.emit_telemetry(TelemetryEvent::DNSCacheHit {
-                        domain: key.domain.clone(),
-                        timestamp: SystemTime::now(),
-                    }).await;
+                    bus_clone
+                        .emit_telemetry(TelemetryEvent::DNSCacheHit {
+                            domain: key.domain.clone(),
+                            timestamp: SystemTime::now(),
+                        })
+                        .await;
 
                     x.hits.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
@@ -154,7 +170,11 @@ pub async fn start_dns_listener(
                     res[0] = packet[0];
                     res[1] = packet[1];
 
-                    if let Err(_e) = socket_clone.send_to(&res, client_addr).await.emit_to_bus(&bus_clone) {
+                    if let Err(_e) = socket_clone
+                        .send_to(&res, client_addr)
+                        .await
+                        .emit_to_bus(&bus_clone)
+                    {
                         // Error already emitted via emit_to_bus
                     }
 
@@ -171,10 +191,12 @@ pub async fn start_dns_listener(
          * REAL MISS
          */
 
-        bus_clone.emit_telemetry(TelemetryEvent::DNSCacheMiss {
-            domain: key.domain.clone(),
-            timestamp: SystemTime::now(),
-        }).await;
+        bus_clone
+            .emit_telemetry(TelemetryEvent::DNSCacheMiss {
+                domain: key.domain.clone(),
+                timestamp: SystemTime::now(),
+            })
+            .await;
 
         let notify = Arc::new(Notify::new());
 
@@ -184,7 +206,11 @@ pub async fn start_dns_listener(
 
         let inflight_clone = inflight.clone();
 
-        let permit = limit.clone().acquire_owned().await.emit_to_bus(&bus_clone)?;
+        let permit = limit
+            .clone()
+            .acquire_owned()
+            .await
+            .emit_to_bus(&bus_clone)?;
 
         let client = current.read().await.clone().client;
         tokio::spawn(async move {
@@ -202,7 +228,7 @@ pub async fn start_dns_listener(
                 Ok(v) => v,
 
                 Err(e) => {
-                    bus_clone.emit_diagnostic(DiagnosticEvent::Error {
+                    _ = bus_clone.emit_diagnostic(DiagnosticEvent::Error {
                         err: format!("{}", e),
                         timestamp: SystemTime::now(),
                     });
@@ -215,7 +241,11 @@ pub async fn start_dns_listener(
                 }
             };
 
-            if let Err(_e) = socket_clone.send_to(&response, client_addr).await.emit_to_bus(&bus_clone) {
+            if let Err(_e) = socket_clone
+                .send_to(&response, client_addr)
+                .await
+                .emit_to_bus(&bus_clone)
+            {
                 // Error already emitted via emit_to_bus
             }
         });
