@@ -17,5 +17,5 @@ pub struct HealthyProxy {
     pub ip: String,
     pub port: u16,
     pub metadata: PorxyMetadata,
-    pub latency: u128,
+    pub latency: u64,
 }

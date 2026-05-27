@@ -29,7 +29,7 @@ async fn check_info(proxy: &str) -> Result<(PorxyMetadata, Client)> {
 /// Tests each proxy's connectivity and latency, inserting healthy ones into the map. Respects cancellation.
 pub async fn get_healthy_proxies(
     map: Arc<DashMap<HealthyProxy, Client>>,
-    latency: u128,
+    latency: u64,
     proxies: Vec<String>,
     cancel: CancellationToken,
 ) -> Result<()> {
@@ -57,7 +57,7 @@ pub async fn get_healthy_proxies(
                     .map(|(i, p)| (i, p.parse::<u16>().unwrap()))
                     .unwrap();
 
-                let ms = start.elapsed().as_millis();
+                let ms: u64 = start.elapsed().as_millis() as u64;
 
                 if ms > latency {
                     continue;

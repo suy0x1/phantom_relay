@@ -6,11 +6,7 @@ use tokio::sync::Mutex;
 use tokio::sync::RwLock;
 
 use super::context::RuntimeContext;
-use crate::config::collector::CollectorConfig;
-use crate::config::dns::DNSConfig;
-use crate::config::proxy::ProxyConfig;
-use crate::config::rotation::RotationConfig;
-use crate::config::tproxy::TProxyConfig;
+use crate::config::Config;
 use crate::metrics::metrics::Metrics;
 use crate::monitor::bus::Bus;
 use crate::routing::manager::ConnectionManager;
@@ -20,15 +16,16 @@ use crate::subsystems::rotation::route::RouteContext;
 
 /// Initializes runtime controller with default configs, metrics, and spawns background managers.
 pub async fn startup(bus: Arc<Bus>) -> Result<RuntimeController> {
+    let config = Config::load_or_create("./phantomrelay.toml")?;
     let current_route = Arc::new(RwLock::new(RouteContext::dummy()));
     let ctx = RuntimeContext {
         bus: bus.clone(),
         metrics: Arc::new(Metrics::default()),
-        rotation_config: Arc::new(RotationConfig::default()),
-        dns_config: Arc::new(Mutex::new(DNSConfig::default())),
-        tproxy_config: Arc::new(TProxyConfig::default()),
-        proxy_config: Arc::new(ProxyConfig::default()),
-        collector_config: Arc::new(Mutex::new(CollectorConfig::default())),
+        rotation_config: Arc::new(config.rotation),
+        dns_config: Arc::new(Mutex::new(config.dns)),
+        tproxy_config: Arc::new(config.tproxy),
+        proxy_config: Arc::new(config.proxy),
+        collector_config: Arc::new(Mutex::new(config.collector)),
         current_route: current_route.clone(),
         conn_map: Arc::new(ConnectionManager::new()),
         dns_cache: Arc::new(DashMap::new()),
