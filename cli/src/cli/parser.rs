@@ -2,13 +2,17 @@ use anyhow::{Result, anyhow};
 
 use crate::{
     cli::args::Commands,
-    runtime::{commands::RuntimeCommands, service::{Mode, Service}},
+    runtime::{
+        commands::RuntimeCommands,
+        service::{Mode, Service},
+    },
 };
 
+/// Parses a service name string into the corresponding Service variant.
 fn parse_service(service: &str) -> Result<Service> {
     match service {
         "logger" => Ok(Service::Logger),
-        
+
         "proxy-collector" => Ok(Service::ProxyCollector),
 
         "dns" => Ok(Service::DNS),
@@ -31,14 +35,16 @@ fn parse_service(service: &str) -> Result<Service> {
     }
 }
 
+/// Parses a mode name string into the corresponding Mode variant.
 fn parse_mode(mode: &str) -> Result<Mode> {
     match mode {
-        "turbo-dns" => Ok(Mode::CacheReloader), 
+        "turbo-dns" => Ok(Mode::CacheReloader),
 
-        _ => Err(anyhow!("unknown mode"))
+        _ => Err(anyhow!("unknown mode")),
     }
 }
 
+/// Converts CLI command arguments to runtime command protocol messages.
 pub fn to_runtime_command(cmd: Commands) -> Result<RuntimeCommands> {
     match cmd {
         Commands::Start { service } => Ok(RuntimeCommands::Start(parse_service(&service)?)),

@@ -1,66 +1,34 @@
 use anyhow::Result;
 
-use futures::{
-    SinkExt,
-    StreamExt,
-};
+use futures::{SinkExt, StreamExt};
 
 use tokio::net::UnixStream;
 
-use tokio_util::codec::{
-    Framed,
-    LinesCodec,
-};
+use tokio_util::codec::{Framed, LinesCodec};
 
 use crate::{
-    ipc::protocol::{
-        IPCRequest,
-        IPCResponse,
-    },
-
+    ipc::protocol::{IPCRequest, IPCResponse},
     runtime::commands::RuntimeCommands,
 };
 
-pub async fn send_command(
-    cmd: RuntimeCommands,
-) -> Result<IPCResponse> {
+/// Sends a runtime command to the daemon via Unix socket IPC.
+pub async fn send_command(cmd: RuntimeCommands) -> Result<IPCResponse> {
+    let stream = UnixStream::connect("/run/phantomrelay.sock").await?;
 
-    let stream =
-        UnixStream::connect(
-            "/run/phantomrelay.sock"
-        )
-        .await?;
+    let mut framed = Framed::new(stream, LinesCodec::new());
 
-    let mut framed =
-        Framed::new(
-            stream,
-            LinesCodec::new(),
-        );
+    let request = IPCRequest::Runtime(cmd);
 
-    let request =
-        IPCRequest::Runtime(cmd);
-
-    let json =
-        serde_json::to_string(
-            &request
-        )?;
+    let json = serde_json::to_string(&request)?;
 
     framed.send(json).await?;
 
-    let line =
-        framed
-            .next()
-            .await
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "daemon disconnected"
-                )
-            })??;
+    let line = framed
+        .next()
+        .await
+        .ok_or_else(|| anyhow::anyhow!("daemon disconnected"))??;
 
-    let response =
-        serde_json::from_str::<IPCResponse>(
-            &line
-        )?;
+    let response = serde_json::from_str::<IPCResponse>(&line)?;
 
     Ok(response)
 }
