@@ -3,7 +3,18 @@ use crate::monitor::events::DiagnosticEvent;
 use std::sync::Arc;
 use std::time::SystemTime;
 
+/// Extension trait for converting errors to bus diagnostic events.
+///
+/// Allows any `Result` type to emit errors to the event bus and convert them to anyhow errors.
 pub trait BusErrorExt<T> {
+    /// Emits an error to the bus as a diagnostic event and converts it to an anyhow error.
+    ///
+    /// If the result is `Ok`, the value is returned unchanged. If the result is `Err`,
+    /// the error is formatted and sent as a diagnostic event to the bus before being
+    /// converted to an anyhow error.
+    ///
+    /// # Arguments
+    /// * `bus` - The event bus to emit the diagnostic event to.
     fn emit_to_bus(self, bus: &Arc<Bus>) -> anyhow::Result<T>;
 }
 

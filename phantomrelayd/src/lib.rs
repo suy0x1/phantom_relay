@@ -1,7 +1,6 @@
 pub mod collector;
 pub mod config;
 pub mod dns;
-pub mod errors;
 pub mod ipc;
 pub mod metrics;
 pub mod monitor;
@@ -10,4 +9,3 @@ pub mod routing;
 pub mod runtime;
 pub mod subsystems;
 pub mod tproxy;
-pub mod utils;

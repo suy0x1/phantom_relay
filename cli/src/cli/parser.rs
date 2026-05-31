@@ -38,7 +38,7 @@ fn parse_service(service: &str) -> Result<Service> {
 /// Parses a mode name string into the corresponding Mode variant.
 fn parse_mode(mode: &str) -> Result<Mode> {
     match mode {
-        "turbo-dns" => Ok(Mode::CacheReloader),
+        "dns-turbo" => Ok(Mode::CacheReloader),
 
         _ => Err(anyhow!("unknown mode")),
     }

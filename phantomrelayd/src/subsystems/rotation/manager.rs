@@ -1,4 +1,4 @@
-use crate::monitor::events::CriticalEvent;
+use crate::monitor::events::{CriticalEvent, DiagnosticEvent};
 use crate::{
     collector::manager::HealthyProxy, runtime::context::RuntimeContext,
     subsystems::rotation::route::RouteContext,
@@ -8,6 +8,7 @@ use dashmap::DashMap;
 use reqwest::Client;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::SystemTime;
 use tokio::sync::RwLock;
 
 pub struct RotationEngine {
@@ -51,6 +52,16 @@ impl RotationEngine {
                     }
                     Ok(CriticalEvent::RotateProxy) => {
                         engine.rotate(ctx.healthy_proxies.clone()).await
+                    }
+                    Ok(CriticalEvent::BadProxy) => {
+                        ctx.healthy_proxies.remove(&ctx.current_route.read().await.proxy);
+                        match engine.rotate(ctx.healthy_proxies.clone()).await {
+                            Ok(_) => Ok(()),
+                            Err(e) => {
+                                _ = ctx.bus.emit_diagnostic(DiagnosticEvent::Error { err: e.to_string(), timestamp: SystemTime::now()});
+                                Ok(())
+                            }
+                        }
                     }
                     _ => Ok(()),
                 };

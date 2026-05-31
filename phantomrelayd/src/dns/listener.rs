@@ -233,6 +233,8 @@ pub async fn start_dns_listener(
                         timestamp: SystemTime::now(),
                     });
 
+                    _ = bus_clone.emit_critical(CriticalEvent::BadProxy);
+
                     inflight_clone.remove(&key);
 
                     notify.notify_waiters();

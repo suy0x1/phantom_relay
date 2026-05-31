@@ -16,6 +16,8 @@ fn record_critical(metrics: &Metrics, event: &CriticalEvent) {
 
         CriticalEvent::RotateProxy => metrics.rotate_proxy(),
 
+        CriticalEvent::BadProxy => metrics.proxy_failed(),
+
         CriticalEvent::LoadInitialProxy => metrics.load_initial_proxy(),
 
         CriticalEvent::EnableCapability { .. } => metrics.capability_enabled(),

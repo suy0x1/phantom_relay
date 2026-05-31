@@ -32,7 +32,11 @@ fn log_critical(event: CriticalEvent) {
         }
 
         CriticalEvent::RotateProxy => {
-            println!("[rotate] rotating proxy now");
+            println!("[rotate] requesting to rotate proxy");
+        }
+
+        CriticalEvent::BadProxy => {
+            println!("[bad proxy] requesting to rotate bad proxy")
         }
     }
 }
