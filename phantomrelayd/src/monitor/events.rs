@@ -18,6 +18,9 @@ pub enum CriticalEvent {
     /// The initial proxy connection has been loaded.
     LoadInitialProxy,
 
+    /// The initial proxy connection has been loaded.
+    BadProxy,
+
     /// A network capability has been enabled.
     EnableCapability {
         /// The network capability that was enabled.
