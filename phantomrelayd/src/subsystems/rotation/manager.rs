@@ -54,11 +54,15 @@ impl RotationEngine {
                         engine.rotate(ctx.healthy_proxies.clone()).await
                     }
                     Ok(CriticalEvent::BadProxy) => {
-                        ctx.healthy_proxies.remove(&ctx.current_route.read().await.proxy);
+                        ctx.healthy_proxies
+                            .remove(&ctx.current_route.read().await.proxy);
                         match engine.rotate(ctx.healthy_proxies.clone()).await {
                             Ok(_) => Ok(()),
                             Err(e) => {
-                                _ = ctx.bus.emit_diagnostic(DiagnosticEvent::Error { err: e.to_string(), timestamp: SystemTime::now()});
+                                _ = ctx.bus.emit_diagnostic(DiagnosticEvent::Error {
+                                    err: e.to_string(),
+                                    timestamp: SystemTime::now(),
+                                });
                                 Ok(())
                             }
                         }

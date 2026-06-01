@@ -6,6 +6,8 @@ use crate::{
         events::{CriticalEvent, DiagnosticEvent, LifecycleEvent},
     },
 };
+use std::fs;
+use std::net::IpAddr;
 
 use super::collector::get_proxy;
 use super::health::get_healthy_proxies;
@@ -34,6 +36,28 @@ fn divide_round_robin(items: Vec<String>, n: usize) -> Vec<Vec<String>> {
     pools
 }
 
+fn get_local_proxy(path: &str) -> Result<Vec<String>> {
+    let contents = fs::read_to_string(path)?;
+
+    let proxies = contents
+        .lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            let rest = line.strip_prefix("socks5://")?;
+            let (ip_str, port_str) = rest.rsplit_once(':')?;
+            if ip_str.parse::<IpAddr>().is_err() {
+                return None;
+            }
+            match port_str.parse::<u16>() {
+                Ok(port) if port != 0 => Some(line.to_string()),
+                _ => None,
+            }
+        })
+        .collect();
+
+    Ok(proxies)
+}
+
 /// Periodically fetches available proxies and validates them in parallel, updating healthy proxy pool.
 pub async fn collect_healthy_proxy(
     config: Arc<Mutex<CollectorConfig>>,
@@ -60,18 +84,26 @@ pub async fn collect_healthy_proxy(
             }
 
             _ = ticker.tick() => {
-                let proxies = match get_proxy(&bus, cancel.clone()).await {
-                    Ok(p) => p,
+                let (fetch_public, path) = {let lock = config.lock().await;(lock.fetch_public,lock.path.clone())};
+                let proxies;
+                if fetch_public{
+                    proxies = match get_proxy(&bus, cancel.clone()).await {
+                        Ok(p) => p,
 
-                    Err(e) => {
-                        _ = bus.emit_diagnostic(DiagnosticEvent::Error {
-                            err: format!("{:#?}", e),
-                            timestamp: SystemTime::now(),
-                        });
+                        Err(e) => {
+                            _ = bus.emit_diagnostic(DiagnosticEvent::Error {
+                                err: format!("{:#?}", e),
+                                timestamp: SystemTime::now(),
+                            });
 
-                        continue;
-                    }
-                };
+                            continue;
+                        }
+                    };
+                }
+                else {
+                    proxies = get_local_proxy(&path)?;
+                }
+                drop(path);
 
                 let (workers, latency) = {
                     let cfg = config.lock().await;

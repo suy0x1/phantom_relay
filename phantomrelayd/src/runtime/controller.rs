@@ -135,9 +135,7 @@ impl RuntimeController {
             "metrics",
         ];
 
-        let modes = vec![
-        "dns-turbo",
-        ];
+        let modes = vec!["dns-turbo"];
 
         let mut status = Vec::new();
 
@@ -192,40 +190,40 @@ impl RuntimeController {
                 }
 
                 Service::CachePreloader => {
-                    if self.is_running("dns"){
-                        let x: Vec<ServiceStatus> =
-                            self.start_service("cache_preloader", preload_service(self.ctx.clone()))?;
+                    if self.is_running("dns") {
+                        let x: Vec<ServiceStatus> = self
+                            .start_service("cache_preloader", preload_service(self.ctx.clone()))?;
                         return Ok(x);
-                    }
-                    else {
-                        return Err(anyhow!("DNS service must be running"))
+                    } else {
+                        return Err(anyhow!("DNS service must be running"));
                     }
                 }
 
                 Service::CacheCleaner => {
                     if self.is_running("dns") {
                         if !self.modes.contains_key("dns-turbo") {
-                            let x =
-                                self.start_service("cache_cleaner", cleanup_service(self.ctx.clone()))?;
+                            let x = self.start_service(
+                                "cache_cleaner",
+                                cleanup_service(self.ctx.clone()),
+                            )?;
                             return Ok(x);
+                        } else {
+                            Err(anyhow!(
+                                "cannot run cache cleaner while dns turbo is active"
+                            ))
                         }
-                        else {
-                            Err(anyhow!("cannot run cache cleaner while dns turbo is active"))
-                        }
-                    }
-                    else {
-                        return Err(anyhow!("DNS service must be running"))
+                    } else {
+                        return Err(anyhow!("DNS service must be running"));
                     }
                 }
 
                 Service::CacheRefresher => {
                     if self.is_running("dns") {
-                        let x =
-                            self.start_service("cache_refresher", refresh_service(self.ctx.clone()))?;
+                        let x = self
+                            .start_service("cache_refresher", refresh_service(self.ctx.clone()))?;
                         return Ok(x);
-                    }
-                    else {
-                        return Err(anyhow!("DNS service must be running"))
+                    } else {
+                        return Err(anyhow!("DNS service must be running"));
                     }
                 }
 
@@ -338,46 +336,46 @@ impl RuntimeController {
                 }
 
                 Service::CachePreloader => {
-                    if self.is_running("dns"){
+                    if self.is_running("dns") {
                         self.stop_service("cache_preloader").await?;
-                        let mut x =
-                            self.start_service("cache_preloader", preload_service(self.ctx.clone()))?;
+                        let mut x = self
+                            .start_service("cache_preloader", preload_service(self.ctx.clone()))?;
                         x[0].name = x[0].name.replace(" started", " restarted");
                         return Ok(x);
-                    }
-                    else {
-                        return Err(anyhow!("DNS service must be running"))
+                    } else {
+                        return Err(anyhow!("DNS service must be running"));
                     }
                 }
 
                 Service::CacheCleaner => {
-                    if self.is_running("dns"){
+                    if self.is_running("dns") {
                         if self.modes.contains_key("dns-turbo") {
                             self.stop_service("cache_cleaner").await?;
-                            let mut x =
-                                self.start_service("cache_cleaner", cleanup_service(self.ctx.clone()))?;
+                            let mut x = self.start_service(
+                                "cache_cleaner",
+                                cleanup_service(self.ctx.clone()),
+                            )?;
                             x[0].name = x[0].name.replace(" started", " restarted");
                             return Ok(x);
+                        } else {
+                            return Err(anyhow!(
+                                "cannot run cache cleaner while dns turbo is active"
+                            ));
                         }
-                        else {
-                            return Err(anyhow!("cannot run cache cleaner while dns turbo is active"))
-                        }
-                    }
-                    else {
-                        return Err(anyhow!("DNS service must be running"))
+                    } else {
+                        return Err(anyhow!("DNS service must be running"));
                     }
                 }
 
                 Service::CacheRefresher => {
-                    if self.is_running("dns"){
+                    if self.is_running("dns") {
                         self.stop_service("cache_refresher").await?;
-                        let mut x =
-                            self.start_service("cache_refresher", refresh_service(self.ctx.clone()))?;
+                        let mut x = self
+                            .start_service("cache_refresher", refresh_service(self.ctx.clone()))?;
                         x[0].name = x[0].name.replace(" started", " restarted");
                         return Ok(x);
-                    }
-                    else {
-                        return Err(anyhow!("DNS service must be running"))
+                    } else {
+                        return Err(anyhow!("DNS service must be running"));
                     }
                 }
 
@@ -420,13 +418,13 @@ impl RuntimeController {
                                 active: true,
                                 is_mode: true,
                             }]);
+                        } else {
+                            return Err(anyhow!(
+                                "cannot enable dns turbo while cache cleaner is running"
+                            ));
                         }
-                        else {
-                            return Err(anyhow!("cannot enable dns turbo while cache cleaner is running"))
-                        }
-                    }
-                    else {
-                        return Err(anyhow!("DNS and cache_refresher services must be running"))
+                    } else {
+                        return Err(anyhow!("DNS and cache_refresher services must be running"));
                     }
                 }
             },
