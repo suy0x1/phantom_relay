@@ -10,6 +10,7 @@ use comfy_table::{Table, presets::UTF8_FULL};
 use crate::{
     cli::{args::Cli, client::send_command, parser::to_runtime_command},
     ipc::protocol::IPCResponse,
+    runtime::status::Response,
 };
 
 fn side_by_side(left: &str, right: &str, gap: usize) -> String {
@@ -68,29 +69,54 @@ async fn main() -> Result<()> {
             let mut has_services = false;
             let mut has_modes = false;
 
-            for service in services {
-                let (icon, state_text) = if service.is_mode {
-                    if service.active {
-                        ("●", "ENABLED")
-                    } else {
-                        ("○", "DISABLED")
-                    }
-                } else {
-                    if service.active {
-                        ("●", "RUNNING")
-                    } else {
-                        ("○", "INACTIVE")
-                    }
-                };
+            match services {
+                Response::Status(services) => {
+                    for service in services {
+                        let (icon, state_text) = if service.is_mode {
+                            if service.active {
+                                ("●", "ENABLED")
+                            } else {
+                                ("○", "DISABLED")
+                            }
+                        } else {
+                            if service.active {
+                                ("●", "RUNNING")
+                            } else {
+                                ("○", "INACTIVE")
+                            }
+                        };
 
-                let row = vec![format!("{} {}", icon, service.name), state_text.to_string()];
+                        let row =
+                            vec![format!("{} {}", icon, service.name), state_text.to_string()];
 
-                if service.is_mode {
-                    has_modes = true;
-                    mode_table.add_row(row);
-                } else {
-                    has_services = true;
-                    service_table.add_row(row);
+                        if service.is_mode {
+                            has_modes = true;
+                            mode_table.add_row(row);
+                        } else {
+                            has_services = true;
+                            service_table.add_row(row);
+                        }
+                    }
+                }
+
+                Response::Conn(c) => {
+                    println!("{}", c);
+                }
+
+                Response::Config(c) => {
+                    println!("{}", c);
+                }
+
+                Response::DNS(d) => {
+                    println!("{}", d);
+                }
+
+                Response::Proxy(p) => {
+                    println!("{}", p)
+                }
+
+                Response::Route(r) => {
+                    println!("{}", r)
                 }
             }
 

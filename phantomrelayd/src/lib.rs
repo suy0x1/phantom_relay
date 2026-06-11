@@ -1,5 +1,6 @@
 pub mod collector;
 pub mod config;
+pub mod debug;
 pub mod dns;
 pub mod ipc;
 pub mod metrics;

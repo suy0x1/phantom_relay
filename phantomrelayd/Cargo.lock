@@ -109,6 +109,7 @@ dependencies = [
  "hashbrown 0.15.5",
  "lock_api",
  "parking_lot_core",
+ "serde",
 ]
 
 [[package]]

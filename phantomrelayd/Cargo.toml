@@ -10,7 +10,7 @@ anyhow = "1"
 tokio-socks = "0.5"
 async-trait = "0.1"
 libc = "0.2"
-dashmap = "7.0.0-rc2"
+dashmap = { version = "7.0.0-rc2", features = ["serde"] }
 reqwest = { version= "0.12", features = ["socks", "json"]}
 rand = "0.8"
 socket2 = "0.5"

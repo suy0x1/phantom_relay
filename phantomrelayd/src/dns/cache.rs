@@ -8,6 +8,8 @@ pub struct CacheKey {
     pub qtype: u16,
     pub qclass: u16,
 }
+
+#[derive(Debug)]
 pub struct CacheEntry {
     pub response: Vec<u8>,
     pub expires_at: Instant,
