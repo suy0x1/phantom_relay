@@ -1,7 +1,6 @@
 use crate::monitor::bus::Bus;
 use crate::monitor::events::DiagnosticEvent;
 use std::sync::Arc;
-use std::time::SystemTime;
 
 /// Extension trait for converting errors to bus diagnostic events.
 ///
@@ -29,7 +28,6 @@ where
                 let err_msg = format!("{}", e);
                 let _ = bus.emit_diagnostic(DiagnosticEvent::Error {
                     err: err_msg.clone(),
-                    timestamp: SystemTime::now(),
                 });
                 Err(anyhow::anyhow!(err_msg))
             }

@@ -40,16 +40,20 @@ sudo modprobe xt_TPROXY
 
 ### Dependencies
 
+PhantomRelay uses rustls for TLS, so OpenSSL development libraries are not required:
+
 ```bash
 # Ubuntu/Debian
-sudo apt-get install -y libssl-dev build-essential
+sudo apt-get install -y build-essential
 
 # CentOS/RHEL
-sudo yum install -y openssl-devel gcc
+sudo yum install -y gcc
 
 # Fedora
-sudo dnf install -y openssl-devel gcc
+sudo dnf install -y gcc
 ```
+
+The Rust toolchain will provide all other required dependencies via Cargo.
 
 ---
 
@@ -223,48 +227,147 @@ docker run -d \
 
 ## Configuration
 
-### Basic Configuration File (Optional)
+### Configuration File (phantomrelay.toml)
 
-While PhantomRelay currently uses in-code defaults, a typical configuration might look like:
+PhantomRelay loads configuration from `phantomrelay.toml` in the daemon's working directory. The configuration file is loaded on startup and defines all subsystem parameters.
+
+#### Complete Configuration Format
 
 ```toml
-[daemon]
-listen_port = 8888
-log_level = "info"
-
 [dns]
-resolver = "8.8.8.8:53"
-cache_ttl_max = 3600
+# DNS listener address and port
+host = "127.0.0.1"
+port = 9002
+
+# Maximum parallel DNS lookups
+max_parallel_dns_lookups = 100
+
+# Cache cleanup interval (seconds)
+cache_cleanup_interval_secs = 30
+
+# Cache refresh interval (seconds)
+cache_refresh_secs = 5
+
+# Minimum prewarmer hits threshold
+min_prest_hits = 25
+
+# DNS turbo mode (aggressive cache saturation)
 cache_saturation = false
-prewarmer_interval = 10
+
+# Domains to preload in DNS cache
+prewarm_domains = [
+    "google.com",
+    "github.com",
+    "youtube.com",
+    "chatgpt.com",
+]
 
 [proxy]
-default_timeout = 30
-retry_attempts = 3
+# Proxy server listen address and port
+host = "127.0.0.1"
+port = 9003
+
+[tproxy]
+# Transparent proxy listener address and port
+host = "127.0.0.1"
+port = 9001
 
 [rotation]
-interval_secs = 60
+# Proxy rotation interval (seconds)
+rotate_sec = 60
 
 [collector]
-health_check_interval = 30
-unhealthy_threshold = 3
+# Number of concurrent health check workers
+total_workers = 100
+
+# Health check latency threshold (ms)
+latency = 3500
+
+# Whether to fetch and verify public IP
+fetch_public = false
+
+# Path to proxy list file
+path = "/path/to/proxies.txt"
 ```
 
-### Proxy List
+#### Configuration Sections
 
-Proxy configuration would typically come from:
-1. Environment variables
-2. Configuration file (future)
-3. Runtime API (future)
+**DNS Configuration:**
+- `host`, `port`: Listen address for DNS queries
+- `max_parallel_dns_lookups`: Concurrent lookup limit
+- `cache_cleanup_interval_secs`: How often to remove expired entries
+- `cache_refresh_secs`: How often to preemptively refresh entries before expiry
+- `min_prest_hits`: Minimum hits before prewarming a domain
+- `cache_saturation`: Enable aggressive cache preloading (DNS turbo mode)
+- `prewarm_domains`: List of domains to keep in cache
 
-Example (currently hardcoded in config):
-```rust
-let proxies = vec![
-    "10.0.0.1:1080".parse()?,
-    "10.0.0.2:1080".parse()?,
-    "10.0.0.3:1080".parse()?,
-];
+**Proxy Configuration:**
+- `host`, `port`: SOCKS5 server listen address
+
+**TProxy Configuration:**
+- `host`, `port`: Kernel-level interception listener address
+
+**Rotation Configuration:**
+- `rotate_sec`: Interval for rotating through available proxies
+
+**Collector Configuration:**
+- `total_workers`: Parallel health check threads
+- `latency`: Timeout/latency threshold for health checks
+- `fetch_public`: Whether to verify public IP during health checks
+- `path`: Path to file containing proxy list
+
+#### Loading Configuration
+
+Configuration is loaded during daemon startup. To apply configuration changes:
+1. Edit `phantomrelay.toml`
+2. Restart the daemon: `prctl shutdown` then restart
+
+Individual service restart is supported for reloading without full daemon restart.
+
+---
+
+## Debug & Inspection
+
+### Debug Commands
+
+Use `prctl debug` commands to inspect daemon state without stopping services:
+
+```bash
+# View all current configuration settings
+prctl debug config
+
+# List active connections with details
+prctl debug conn
+
+# Show DNS cache status and statistics
+prctl debug dns
+
+# Show proxy health and availability status
+prctl debug proxy
+
+# Show current proxy route selection
+prctl debug route
 ```
+
+Debug output is formatted for easy reading and shows real-time state from the running daemon.
+
+---
+
+## Proxy List
+
+Proxy configuration comes from:
+1. Configuration file (`path` setting in `[collector]` section)
+2. Environment variables (PHANTOM_PROXIES)
+3. Runtime API (if implemented)
+
+Example proxy file format:
+```
+10.0.0.1:1080
+10.0.0.2:1080
+10.0.0.3:1080
+```
+
+One proxy per line in `address:port` format.
 
 ---
 

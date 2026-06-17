@@ -2,7 +2,7 @@ use std::{collections::HashMap, process::Command, sync::Arc};
 
 use anyhow::{Result, anyhow};
 use serde_json::Value;
-use std::time::SystemTime;
+
 use tokio::sync::Mutex;
 
 use crate::{
@@ -22,7 +22,6 @@ const RULE_MARK_BYPASS: &str = "phantom_mark_bypass";
 fn emit(bus: Arc<Bus>, change: &str) -> Result<()> {
     bus.emit_critical(CriticalEvent::NetworkChange {
         change: change.to_string(),
-        timestamp: SystemTime::now(),
     })?;
 
     Ok(())

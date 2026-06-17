@@ -4,7 +4,7 @@ use crate::monitor::events::TelemetryEvent;
 use crate::subsystems::rotation::route::RouteContext;
 use anyhow::Result;
 use std::net::IpAddr;
-use std::time::SystemTime;
+
 use std::{sync::Arc, time::Instant};
 use tokio::{io::copy_bidirectional, net::TcpStream};
 
@@ -54,7 +54,6 @@ pub async fn handle_connection(
         port: original.port(),
         proxy: IpAddr::V4(conn.host.parse().emit_to_bus(&bus)?),
         proxy_port: conn.port,
-        timestamp: SystemTime::now(),
     })
     .await;
     copy_bidirectional(&mut client, &mut remote)
@@ -65,7 +64,6 @@ pub async fn handle_connection(
         port: original.port(),
         proxy: IpAddr::V4(conn.host.parse().emit_to_bus(&bus)?),
         proxy_port: conn.port,
-        timestamp: SystemTime::now(),
     })
     .await;
     map.connections.remove(&key);

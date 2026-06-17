@@ -13,7 +13,7 @@ use dashmap::DashMap;
 
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::Arc;
-use std::time::{Instant, SystemTime};
+use std::time::Instant;
 
 use tokio::net::UdpSocket;
 use tokio::sync::RwLock;
@@ -46,13 +46,9 @@ pub async fn start_dns_listener(
     _ = bus.emit_lifecycle(LifecycleEvent::ServiceStartup {
         service_name: "DNS server".to_string(),
         port: port,
-        timestamp: SystemTime::now(),
     });
 
-    bus.emit_critical(CriticalEvent::EnableCapability {
-        cap: DNSIntercept,
-        timestamp: SystemTime::now(),
-    })?;
+    bus.emit_critical(CriticalEvent::EnableCapability { cap: DNSIntercept })?;
     loop {
         let bus_clone = bus.clone();
 
@@ -61,12 +57,12 @@ pub async fn start_dns_listener(
             _ = cancel.cancelled() => {
                 bus.emit_critical(CriticalEvent::DisableCapability {
                     cap: DNSIntercept,
-                    timestamp: SystemTime::now(),
+
                 })?;
                 _ = bus.emit_lifecycle(LifecycleEvent::ServiceShutdown {
                     service_name: "DNS server".to_string(),
                     port: port,
-                    timestamp: SystemTime::now(),
+
                 });
                 break;
             }
@@ -97,7 +93,6 @@ pub async fn start_dns_listener(
             .emit_telemetry(TelemetryEvent::DNSRequest {
                 domain: key.domain.clone(),
                 resolver: IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
-                timestamp: SystemTime::now(),
             })
             .await;
 
@@ -112,7 +107,6 @@ pub async fn start_dns_listener(
                 bus_clone
                     .emit_telemetry(TelemetryEvent::DNSCacheHit {
                         domain: key.domain.clone(),
-                        timestamp: SystemTime::now(),
                     })
                     .await;
 
@@ -157,7 +151,6 @@ pub async fn start_dns_listener(
                     bus_clone
                         .emit_telemetry(TelemetryEvent::DNSCacheHit {
                             domain: key.domain.clone(),
-                            timestamp: SystemTime::now(),
                         })
                         .await;
 
@@ -194,7 +187,6 @@ pub async fn start_dns_listener(
         bus_clone
             .emit_telemetry(TelemetryEvent::DNSCacheMiss {
                 domain: key.domain.clone(),
-                timestamp: SystemTime::now(),
             })
             .await;
 
@@ -230,7 +222,6 @@ pub async fn start_dns_listener(
                 Err(e) => {
                     _ = bus_clone.emit_diagnostic(DiagnosticEvent::Error {
                         err: format!("{}", e),
-                        timestamp: SystemTime::now(),
                     });
 
                     _ = bus_clone.emit_critical(CriticalEvent::BadProxy);

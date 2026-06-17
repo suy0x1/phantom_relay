@@ -472,7 +472,8 @@ impl RuntimeController {
                         &self.ctx.tproxy_config,
                         &self.ctx.proxy_config,
                         &self.ctx.collector_config,
-                    ).await;
+                    )
+                    .await;
                     Ok(Response::Config(debug_config(x)?))
                 }
 
@@ -483,9 +484,13 @@ impl RuntimeController {
                     Ok(Response::DNS(debug_dns(x)?))
                 }
 
-                Debug::Proxy => Ok(Response::Proxy(debug_proxy(self.ctx.healthy_proxies.clone())?)),
+                Debug::Proxy => Ok(Response::Proxy(debug_proxy(
+                    self.ctx.healthy_proxies.clone(),
+                )?)),
 
-                Debug::Route => Ok(Response::Route(debug_route(self.ctx.current_route.clone()).await?)),
+                Debug::Route => Ok(Response::Route(
+                    debug_route(self.ctx.current_route.clone()).await?,
+                )),
             },
             RuntimeCommands::Shutdown => {
                 let x = self.shutdown().await?;

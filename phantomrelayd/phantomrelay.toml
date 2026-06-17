@@ -2,7 +2,7 @@
 total_workers = 100
 latency = 3500
 fetch_public = false
-path = "/home/suyash/proxy.txt"
+path = "/home/suyash/test.txt"
 
 [dns]
 host = "127.0.0.1"

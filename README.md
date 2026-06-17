@@ -116,8 +116,8 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed component documentation.
 ### Prerequisites
 - Rust 1.70+ (edition 2024)
 - Linux kernel with netfilter support (for TProxy)
-- libssl-dev (for HTTPS support)
-- nftables v1.0.0+ 
+- nftables v1.0.0+
+- Optional: libssl-dev (not required; rustls is used for TLS) 
 
 ### Build Commands
 
@@ -197,39 +197,103 @@ prctl status  # Shows full service list
 ### Available Modes
 - **dns-turbo** - Aggressive DNS cache saturation mode
 
+### Debug Commands
+
+```bash
+# View current configuration state
+prctl debug config
+
+# View active connections
+prctl debug conn
+
+# View DNS cache status
+prctl debug dns
+
+# View proxy status
+prctl debug proxy
+
+# View current proxy route
+prctl debug route
+```
+
 ---
 
 ## Configuration
 
-Configuration is managed through the daemon's runtime context. Key configuration areas:
+Configuration is managed through a TOML configuration file (`phantomrelay.toml`) and the runtime context. The daemon loads the configuration on startup and services can be controlled at runtime via the CLI.
 
-### DNS Configuration
+### Configuration File Format
+
+```toml
+[dns]
+host = "127.0.0.1"
+port = 9002
+max_parallel_dns_lookups = 100
+cache_cleanup_interval_secs = 30
+cache_refresh_secs = 5
+min_prest_hits = 25
+cache_saturation = false
+prewarm_domains = [
+    "google.com",
+    "github.com",
+    "youtube.com"
+]
+
+[proxy]
+host = "127.0.0.1"
+port = 9003
+
+[tproxy]
+host = "127.0.0.1"
+port = 9001
+
+[rotation]
+rotate_sec = 60
+
+[collector]
+total_workers = 100
+latency = 3500
+fetch_public = false
+path = "/path/to/proxies.txt"
 ```
-- DNS resolver address
+
+### Configuration Areas
+
+#### DNS Configuration
+```
+- Resolver address and port
 - Cache TTL settings
-- Prewarmer interval
-- Cache saturation (turbo mode)
+- Prewarmer interval and behavior
+- Prewarm domains list
+- Cache saturation (turbo mode) settings
 ```
 
-### Proxy Configuration
+#### Proxy Configuration
 ```
-- Proxy list
-- Connection timeout
-- Retry policy
+- Proxy server listen address and port
+- Proxy list (via file or environment)
+- Connection timeout settings
 ```
 
-### TProxy Configuration
+#### TProxy Configuration
 ```
-- Intercept port
-- Firewall rules
+- Intercept port for kernel-level interception
+- Firewall rules configuration
 - Original destination extraction method
 ```
 
-### Rotation Configuration
+#### Rotation Configuration
 ```
 - Rotation interval (default: 60 seconds)
 - Health check frequency
-- Unhealthy proxy timeout
+```
+
+#### Collector Configuration
+```
+- Worker count for concurrent health checks
+- Latency threshold
+- Public IP fetching
+- Proxy file path
 ```
 
 See configuration files in `phantomrelayd/src/config/` for detailed structure.
@@ -380,8 +444,10 @@ phantom_relay/
 │       └── runtime/             # Command handling
 │
 ├── phantomrelayd/               # Main daemon
+│   ├── phantomrelay.toml       # Configuration file
 │   └── src/
 │       ├── config/              # Configuration structures
+│       ├── debug/               # Debug inspection utilities
 │       ├── dns/                 # DNS subsystem
 │       ├── proxy/               # Proxy server
 │       ├── routing/             # Connection routing
@@ -405,8 +471,9 @@ phantom_relay/
 - **anyhow**: Error handling
 - **socket2**: Low-level socket operations
 - **fast-socks5**: SOCKS5 protocol
-- **reqwest**: HTTP client (DoH support)
+- **reqwest**: HTTP client (DoH support) with rustls for TLS
 - **chrono**: Timestamps
+- **rustls**: TLS library (replaces OpenSSL)
 
 ### Adding a New Service
 1. Create factory in `runtime/factories.rs`

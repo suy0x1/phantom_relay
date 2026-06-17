@@ -1,5 +1,4 @@
 use std::net::IpAddr;
-use std::time::SystemTime;
 
 use crate::subsystems::network::capablities::NetworkCapability;
 
@@ -25,24 +24,18 @@ pub enum CriticalEvent {
     EnableCapability {
         /// The network capability that was enabled.
         cap: NetworkCapability,
-        /// When the capability was enabled.
-        timestamp: SystemTime,
     },
 
     /// A network capability has been disabled.
     DisableCapability {
         /// The network capability that was disabled.
         cap: NetworkCapability,
-        /// When the capability was disabled.
-        timestamp: SystemTime,
     },
 
     /// A network change has been detected.
     NetworkChange {
         /// Description of the network change.
         change: String,
-        /// When the change was detected.
-        timestamp: SystemTime,
     },
 }
 
@@ -62,9 +55,6 @@ pub enum TelemetryEvent {
         proxy: IpAddr,
         /// The proxy port.
         proxy_port: u16,
-
-        /// When the connection was opened.
-        timestamp: SystemTime,
     },
 
     /// A connection to a target host has been closed.
@@ -78,9 +68,6 @@ pub enum TelemetryEvent {
         proxy: IpAddr,
         /// The proxy port.
         proxy_port: u16,
-
-        /// When the connection was closed.
-        timestamp: SystemTime,
     },
 
     /// Successfully connected to a proxy server.
@@ -89,9 +76,6 @@ pub enum TelemetryEvent {
         host: IpAddr,
         /// The proxy port.
         port: u16,
-
-        /// When the connection succeeded.
-        timestamp: SystemTime,
     },
 
     /// Failed to connect to a proxy server.
@@ -100,9 +84,6 @@ pub enum TelemetryEvent {
         host: IpAddr,
         /// The proxy port.
         port: u16,
-
-        /// When the connection failed.
-        timestamp: SystemTime,
     },
 
     /// A DNS query was made.
@@ -111,25 +92,18 @@ pub enum TelemetryEvent {
         domain: String,
         /// The resolver IP address that answered the query.
         resolver: IpAddr,
-
-        /// When the query was made.
-        timestamp: SystemTime,
     },
 
     /// A DNS query result was found in the cache.
     DNSCacheHit {
         /// The domain that was cached.
         domain: String,
-        /// When the cache hit occurred.
-        timestamp: SystemTime,
     },
 
     /// A DNS query result was not found in the cache.
     DNSCacheMiss {
         /// The domain that was not cached.
         domain: String,
-        /// When the cache miss occurred.
-        timestamp: SystemTime,
     },
 }
 
@@ -144,9 +118,6 @@ pub enum LifecycleEvent {
         service_name: String,
         /// The port the service is listening on.
         port: u16,
-
-        /// When the service started.
-        timestamp: SystemTime,
     },
 
     /// A service has shut down.
@@ -155,36 +126,24 @@ pub enum LifecycleEvent {
         service_name: String,
         /// The port the service was listening on.
         port: u16,
-
-        /// When the service shut down.
-        timestamp: SystemTime,
     },
 
     /// A background task has started.
     TaskStartup {
         /// The name of the task that started.
         task_name: String,
-
-        /// When the task started.
-        timestamp: SystemTime,
     },
 
     /// A background task has shut down.
     TaskShutdown {
         /// The name of the task that shut down.
         task_name: String,
-
-        /// When the task shut down.
-        timestamp: SystemTime,
     },
 
     /// The DNS cache has been cleaned of expired entries.
     DNSCacheCleanup {
         /// The number of entries removed from the cache.
         entries_cleaned: usize,
-
-        /// When the cleanup occurred.
-        timestamp: SystemTime,
     },
 }
 
@@ -197,17 +156,11 @@ pub enum DiagnosticEvent {
     Info {
         /// The diagnostic message content.
         content: String,
-
-        /// When the message was generated.
-        timestamp: SystemTime,
     },
 
     /// An error message.
     Error {
         /// The error description.
         err: String,
-
-        /// When the error occurred.
-        timestamp: SystemTime,
     },
 }

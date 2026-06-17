@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use dashmap::DashMap;
-use std::time::SystemTime;
+
 use tokio::sync::Mutex;
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
@@ -27,14 +27,12 @@ pub async fn preload_dns_entries(
 ) -> Result<()> {
     _ = bus.emit_lifecycle(LifecycleEvent::TaskStartup {
         task_name: "DNS Cache Preloader".to_string(),
-        timestamp: SystemTime::now(),
     });
 
     for domain in &config.lock().await.prewarm_domains {
         if cancel.is_cancelled() {
             _ = bus.emit_lifecycle(LifecycleEvent::TaskShutdown {
                 task_name: "DNS Cache Preloader".to_string(),
-                timestamp: SystemTime::now(),
             });
             break;
         }
@@ -92,7 +90,6 @@ pub async fn preload_dns_entries(
 
     _ = bus.emit_diagnostic(DiagnosticEvent::Info {
         content: format!("preloaded {} cache entires", cache.len()),
-        timestamp: SystemTime::now(),
     });
 
     Ok(())

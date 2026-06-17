@@ -107,20 +107,87 @@ CLI (prctl)                    Daemon (phantomrelayd)
 
 ### 4. **Configuration System** (`config/*`)
 
-Structured configuration management for all subsystems.
+Structured configuration management for all subsystems with TOML file support.
 
 **Configuration Domains:**
-- **DNSConfig**: DNS resolver settings, cache parameters, saturation modes
-- **ProxyConfig**: Proxy connection parameters
+- **DNSConfig**: DNS resolver settings, cache parameters, saturation modes, prewarm domains
+- **ProxyConfig**: Proxy server connection parameters
 - **TProxyConfig**: Transparent proxy parameters
 - **RotationConfig**: Proxy rotation timing
-- **CollectorConfig**: Health check parameters
+- **CollectorConfig**: Health check parameters, worker count, latency thresholds
 
-**Design Pattern: Shared Arc-wrapped configs** accessible to all services with interior mutability (Mutex) where needed.
+**Configuration Loading:**
+```
+┌────────────────────────────────┐
+│  phantomrelay.toml             │
+│  (TOML Configuration File)     │
+└────────────────┬───────────────┘
+                 │
+                 ▼
+        ┌────────────────────┐
+        │  Config Parser     │
+        │  (on startup)      │
+        └────────────┬───────┘
+                     │
+    ┌────────────────┼────────────────┐
+    ▼                ▼                ▼
+  DNS           Proxy            TProxy
+  Config        Config           Config
+  Arc<Mutex>    Arc<RwLock>      Arc<RwLock>
+```
+
+**Design Pattern: Shared Arc-wrapped configs** accessible to all services with interior mutability (Mutex/RwLock) where needed.
 
 ---
 
-### 5. **DNS Resolution Subsystem** (`dns/*`)
+### 5. **Debug Subsystem** (`debug/*`)
+
+Runtime inspection utilities for troubleshooting and monitoring without stopping services.
+
+**Debug Modules:**
+- **config.rs**: Current configuration state inspection
+- **conn.rs**: Active connection monitoring
+- **dns.rs**: DNS cache status and statistics
+- **proxy.rs**: Proxy health and status
+- **route.rs**: Current proxy route context
+
+**Debug Command Flow:**
+```
+CLI Command (prctl debug <subcommand>)
+    │
+    ▼
+IPC Request → IPC Server
+    │
+    ▼
+RuntimeController → Debug Handler
+    │
+    ▼
+Fetch State from Services
+    ├─ Configuration (from Arc config objects)
+    ├─ Connections (from DashMap conn_map)
+    ├─ DNS Cache (from DashMap dns_cache)
+    ├─ Routes (from RwLock current_route)
+    └─ Proxies (from DashMap healthy_proxies)
+    │
+    ▼
+Format & Return via IPC
+    │
+    ▼
+CLI Prints to stdout
+```
+
+**Available Debug Commands:**
+```bash
+prctl debug config    # Show all current configurations
+prctl debug conn      # List active connections
+prctl debug dns       # Show DNS cache status
+prctl debug proxy     # Show proxy health status
+prctl debug route     # Show current route selection
+```
+
+---
+
+### 6. **DNS Resolution Subsystem** (`dns/*`)
 
 Complete DNS resolution with caching, prewarming, and refresh capabilities.
 
@@ -172,7 +239,7 @@ Complete DNS resolution with caching, prewarming, and refresh capabilities.
 
 ---
 
-### 6. **Routing & Connection Management** (`routing/*`)
+### 7. **Routing & Connection Management** (`routing/*`)
 
 Manages connection lifecycle and proxy routing decisions.
 
@@ -217,7 +284,7 @@ Manages connection lifecycle and proxy routing decisions.
 
 ---
 
-### 7. **Proxy Rotation Engine** (`subsystems/rotation/*`)
+### 8. **Proxy Rotation Engine** (`subsystems/rotation/*`)
 
 Intelligent proxy rotation with round-robin or dynamic selection.
 
@@ -257,7 +324,7 @@ Intelligent proxy rotation with round-robin or dynamic selection.
 
 ---
 
-### 8. **Transparent Proxy (TProxy) Subsystem** (`tproxy/*`)
+### 9. **Transparent Proxy (TProxy) Subsystem** (`tproxy/*`)
 
 Kernel-level transparent proxy interception.
 
@@ -298,7 +365,7 @@ Kernel-level transparent proxy interception.
 
 ---
 
-### 9. **Network Subsystem** (`subsystems/network/*`)
+### 10. **Network Subsystem** (`subsystems/network/*`)
 
 Manages network rules, capabilities, and system-level network configuration.
 
@@ -309,7 +376,7 @@ Manages network rules, capabilities, and system-level network configuration.
 
 ---
 
-### 10. **Collector Service** (`collector/*`)
+### 11. **Collector Service** (`collector/*`)
 
 Health checking and proxy availability monitoring.
 
@@ -349,7 +416,7 @@ Health checking and proxy availability monitoring.
 
 ---
 
-### 11. **Direct Proxy Subsystem** (`proxy/*`)
+### 12. **Direct Proxy Subsystem** (`proxy/*`)
 
 SOCKS5-compatible proxy server for applications connecting directly.
 
@@ -383,7 +450,7 @@ SOCKS5-compatible proxy server for applications connecting directly.
 
 ---
 
-### 12. **Metrics & Observability** (`metrics/*`)
+### 13. **Metrics & Observability** (`metrics/*`)
 
 Prometheus-compatible metrics collection.
 

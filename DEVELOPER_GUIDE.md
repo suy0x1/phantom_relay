@@ -33,6 +33,7 @@ phantom_relay/
 │
 └── phantomrelayd/             # Daemon
     ├── Cargo.toml
+    ├── phantomrelay.toml      # Configuration file
     └── src/
         ├── main.rs           # Daemon entry point
         ├── lib.rs           # Module declarations
@@ -54,6 +55,14 @@ phantom_relay/
         │   ├── rotation.rs
         │   ├── collector.rs
         │   └── service.rs
+        │
+        ├── debug/           # Debug inspection utilities
+        │   ├── mod.rs       # Debug module exports
+        │   ├── config.rs    # Configuration debug info
+        │   ├── conn.rs      # Connection debug info
+        │   ├── dns.rs       # DNS cache debug info
+        │   ├── proxy.rs     # Proxy status debug info
+        │   └── route.rs     # Route context debug info
         │
         ├── dns/             # DNS resolution subsystem
         │   ├── mod.rs
@@ -241,6 +250,36 @@ let ctx = RuntimeContext {
     my_config: Arc::new(Mutex::new(MyConfig::default())),
     // ...
 };
+```
+
+**4. Add to TOML config** in `phantomrelay.toml`:
+```toml
+[myconfig]
+param1 = "value"
+param2 = 100
+```
+
+### Adding Debug Inspection Commands
+
+**1. Create debug module** in `debug/mymodule.rs`:
+```rust
+pub fn debug_my_info(info: MyInfo) -> Result<String> {
+    Ok(format!("{:#?}", info))
+}
+```
+
+**2. Add to debug/mod.rs**:
+```rust
+pub mod mymodule;
+```
+
+**3. Handle in CLI** in `cli/runtime/commands.rs`:
+```rust
+"mycommand" => {
+    let info = /* fetch from daemon */;
+    let output = debug_my_info(info)?;
+    println!("{}", output);
+}
 ```
 
 ---

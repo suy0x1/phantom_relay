@@ -66,8 +66,17 @@ Complete guide to PhantomRelay documentation.
 - → Review [COMPONENTS.md](./COMPONENTS.md) Concurrency Model
 
 **...understand the CLI tool**
-- → [README.md](./README.md) Running section
+- → [README.md](./README.md) Running section and Debug Commands
 - → [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md) Project Layout - cli/
+
+**...inspect daemon state (debug commands)**
+- → [README.md](./README.md) Debug Commands section
+- → [DEPLOYMENT.md](./DEPLOYMENT.md) Debug & Inspection section
+- → [ARCHITECTURE.md](./ARCHITECTURE.md) Section 5: Debug Subsystem
+
+**...configure PhantomRelay**
+- → [DEPLOYMENT.md](./DEPLOYMENT.md) Configuration section
+- → [README.md](./README.md) Configuration section
 
 **...optimize performance**
 - → [DEPLOYMENT.md](./DEPLOYMENT.md) Performance Tuning

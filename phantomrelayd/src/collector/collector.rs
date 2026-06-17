@@ -3,7 +3,7 @@ use crate::monitor::events::DiagnosticEvent;
 use anyhow::Result;
 use reqwest::Client;
 use std::time::Duration;
-use std::time::SystemTime;
+
 use tokio::time::sleep;
 use tokio_util::sync::CancellationToken;
 
@@ -34,7 +34,7 @@ pub async fn get_proxy(bus: &Bus, cancel: CancellationToken) -> Result<Vec<Strin
                     Err(e) => {
                         _ = bus.emit_diagnostic(DiagnosticEvent::Error {
                             err: format!("Fetch attempt {} failed: {:#?}", attempt, e),
-                            timestamp: SystemTime::now(),
+
                         });
 
                         if attempt < 3 {

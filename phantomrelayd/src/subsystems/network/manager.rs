@@ -191,11 +191,11 @@ impl NetworkManager {
 
         loop {
             match rx.recv().await {
-                Ok(CriticalEvent::EnableCapability { cap, timestamp: _ }) => {
+                Ok(CriticalEvent::EnableCapability { cap }) => {
                     self.enable(cap.clone()).await?;
                 }
 
-                Ok(CriticalEvent::DisableCapability { cap, timestamp: _ }) => {
+                Ok(CriticalEvent::DisableCapability { cap }) => {
                     self.disable(&cap).await?;
                 }
 

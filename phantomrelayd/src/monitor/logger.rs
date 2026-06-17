@@ -11,20 +11,20 @@ use crate::monitor::{
 
 fn log_critical(event: CriticalEvent) {
     match event {
-        CriticalEvent::NetworkChange { change, timestamp } => {
-            println!("[{:?}] [network] {}", timestamp, change);
+        CriticalEvent::NetworkChange { change } => {
+            println!("[network] {}", change);
         }
 
         CriticalEvent::RoutingDecision => {
             println!("[routing] decision made");
         }
 
-        CriticalEvent::EnableCapability { cap, timestamp } => {
-            println!("[{:?}] [capability] {:?} enabled", timestamp, cap);
+        CriticalEvent::EnableCapability { cap } => {
+            println!("[capability] {:?} enabled", cap);
         }
 
-        CriticalEvent::DisableCapability { cap, timestamp } => {
-            println!("[{:?}] [capability] {:?} disabled", timestamp, cap);
+        CriticalEvent::DisableCapability { cap } => {
+            println!("[capability] {:?} disabled", cap);
         }
 
         CriticalEvent::LoadInitialProxy => {
@@ -43,62 +43,36 @@ fn log_critical(event: CriticalEvent) {
 
 fn log_lifecycle(event: LifecycleEvent) {
     match event {
-        LifecycleEvent::ServiceStartup {
-            service_name,
-            port,
-            timestamp,
-        } => {
-            println!(
-                "[{:?}] [service] {} started on {}",
-                timestamp, service_name, port,
-            );
+        LifecycleEvent::ServiceStartup { service_name, port } => {
+            println!("[service] {} started on {}", service_name, port,);
         }
 
-        LifecycleEvent::ServiceShutdown {
-            service_name,
-            port,
-            timestamp,
-        } => {
-            println!(
-                "[{:?}] [service] {} stopped on {}",
-                timestamp, service_name, port,
-            );
+        LifecycleEvent::ServiceShutdown { service_name, port } => {
+            println!("[service] {} stopped on {}", service_name, port,);
         }
 
-        LifecycleEvent::TaskStartup {
-            task_name,
-            timestamp,
-        } => {
-            println!("[{:?}] [task] {} started", timestamp, task_name,);
+        LifecycleEvent::TaskStartup { task_name } => {
+            println!("[task] {} started", task_name,);
         }
 
-        LifecycleEvent::TaskShutdown {
-            task_name,
-            timestamp,
-        } => {
-            println!("[{:?}] [task] {} stopped", timestamp, task_name,);
+        LifecycleEvent::TaskShutdown { task_name } => {
+            println!("[task] {} stopped", task_name,);
         }
 
-        LifecycleEvent::DNSCacheCleanup {
-            entries_cleaned,
-            timestamp,
-        } => {
-            println!(
-                "[{:?}] [dns-cache] cleaned {} entries",
-                timestamp, entries_cleaned,
-            );
+        LifecycleEvent::DNSCacheCleanup { entries_cleaned } => {
+            println!("[dns-cache] cleaned {} entries", entries_cleaned,);
         }
     }
 }
 
 fn log_diagnostic(event: DiagnosticEvent) {
     match event {
-        DiagnosticEvent::Info { content, timestamp } => {
-            println!("[{:?}] [info] {}", timestamp, content,);
+        DiagnosticEvent::Info { content } => {
+            println!("[info] {}", content,);
         }
 
-        DiagnosticEvent::Error { err, timestamp } => {
-            eprintln!("[{:?}] [error] {}", timestamp, err,);
+        DiagnosticEvent::Error { err } => {
+            eprintln!("[error] {}", err,);
         }
     }
 }
