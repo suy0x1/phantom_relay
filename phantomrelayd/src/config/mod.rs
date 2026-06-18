@@ -8,6 +8,8 @@ pub mod proxy;
 pub mod rotation;
 /// Configuration for the transparent proxy subsystem.
 pub mod tproxy;
+/// Configuration for the default state
+pub mod defaultstate;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -18,6 +20,7 @@ use dns::DNSConfig;
 use proxy::ProxyConfig;
 use rotation::RotationConfig;
 use tproxy::TProxyConfig;
+use defaultstate::DefaultState;
 
 /// Global configuration for phantom relay daemon.
 ///
@@ -31,6 +34,7 @@ pub struct Config {
     pub proxy: ProxyConfig,
     pub rotation: RotationConfig,
     pub tproxy: TProxyConfig,
+    pub default: DefaultState,
 }
 
 impl Config {

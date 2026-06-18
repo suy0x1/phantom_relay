@@ -13,6 +13,7 @@ use crate::routing::manager::ConnectionManager;
 use crate::runtime::controller::RuntimeController;
 use crate::subsystems::rotation::manager::RotationEngine;
 use crate::subsystems::rotation::route::RouteContext;
+use crate::utils::converter::convert_start;
 
 /// Initializes runtime controller with default configs, metrics, and spawns background managers.
 pub async fn startup(bus: Arc<Bus>) -> Result<RuntimeController> {
@@ -38,7 +39,7 @@ pub async fn startup(bus: Arc<Bus>) -> Result<RuntimeController> {
         cursor: AtomicUsize::new(0),
     });
 
-    let runtime = RuntimeController::new(ctx, rotation_engine);
+    let mut runtime = RuntimeController::new(ctx, rotation_engine);
     runtime
         .networkmanager
         .clone()
@@ -46,6 +47,11 @@ pub async fn startup(bus: Arc<Bus>) -> Result<RuntimeController> {
     runtime
         .rotation_engine
         .start_rotation_engine(runtime.rotation_engine.clone(), runtime.ctx.clone());
+
+    let default_services = config.default.services.clone();
+    for i in default_services {
+        runtime.handle_commands(convert_start(&i)?).await?;
+    }
 
     Ok(runtime)
 }
