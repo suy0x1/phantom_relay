@@ -1,7 +1,7 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Configuration for the default state
-/// 
+///
 /// Controls the services that should start on the start-up of the daemon
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]

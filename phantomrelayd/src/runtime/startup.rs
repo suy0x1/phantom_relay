@@ -22,6 +22,7 @@ pub async fn startup(bus: Arc<Bus>) -> Result<RuntimeController> {
     let ctx = RuntimeContext {
         bus: bus.clone(),
         metrics: Arc::new(Metrics::default()),
+        logger_config: Arc::new(config.logger),
         rotation_config: Arc::new(config.rotation),
         dns_config: Arc::new(Mutex::new(config.dns)),
         tproxy_config: Arc::new(config.tproxy),

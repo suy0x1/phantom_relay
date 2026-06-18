@@ -22,7 +22,9 @@ pub fn logger_service(ctx: Arc<RuntimeContext>) -> ServiceFn {
     Arc::new(move |cancel| {
         let ctx = ctx.clone();
 
-        Box::pin(async move { start_logger(ctx.bus.clone(), cancel).await })
+        Box::pin(
+            async move { start_logger(ctx.logger_config.clone(), ctx.bus.clone(), cancel).await },
+        )
     })
 }
 

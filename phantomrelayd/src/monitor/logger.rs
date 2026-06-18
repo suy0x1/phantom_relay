@@ -4,9 +4,13 @@ use std::sync::Arc;
 use tokio::sync::broadcast;
 use tokio_util::sync::CancellationToken;
 
-use crate::monitor::{
-    bus::Bus,
-    events::{CriticalEvent, DiagnosticEvent, LifecycleEvent},
+use crate::{
+    config::logger::LoggerConfig,
+    monitor::{
+        bus::Bus,
+        events::{CriticalEvent, DiagnosticEvent, LifecycleEvent},
+        level::Level,
+    },
 };
 
 fn log_critical(event: CriticalEvent) {
@@ -65,29 +69,49 @@ fn log_lifecycle(event: LifecycleEvent) {
     }
 }
 
-fn log_diagnostic(event: DiagnosticEvent) {
-    match event {
-        DiagnosticEvent::Info { content } => {
-            println!("[info] {}", content,);
-        }
+fn log_diagnostic(level: Level, event: DiagnosticEvent) {
+    match level {
+        Level::INFO => match event {
+            DiagnosticEvent::Info { content } => {
+                println!("[info] {}", content,);
+            }
 
-        DiagnosticEvent::Error { err } => {
-            eprintln!("[error] {}", err,);
-        }
+            DiagnosticEvent::Error { err } => {
+                eprintln!("[error] {}", err,);
+            }
+        },
+        Level::ERROR => match event {
+            DiagnosticEvent::Error { err } => {
+                eprintln!("[error] {}", err,);
+            }
+            _ => {}
+        },
     }
 }
 
 /// Subscribes to bus events and logs them to stdout. Respects cancellation token.
-pub async fn start_logger(bus: Arc<Bus>, cancel: CancellationToken) -> Result<()> {
+pub async fn start_logger(
+    config: Arc<LoggerConfig>,
+    bus: Arc<Bus>,
+    cancel: CancellationToken,
+) -> Result<()> {
     let mut critical_rx = bus.subscribe_critical();
 
     let mut lifecycle_rx = bus.subscribe_lifecycle();
 
     let mut diagnostic_rx = bus.subscribe_diagnostic();
 
-    let mut critical_open = true;
-    let mut lifecycle_open = true;
+    let mut critical_open = false;
+    let mut lifecycle_open = false;
     let mut diagnostic_open = true;
+
+    match config.level {
+        Level::INFO => {
+            critical_open = true;
+            lifecycle_open = true;
+        }
+        _ => {}
+    }
 
     loop {
         tokio::select! {
@@ -140,7 +164,7 @@ pub async fn start_logger(bus: Arc<Bus>, cancel: CancellationToken) -> Result<()
             if diagnostic_open => {
                 match result {
                     Ok(event) => {
-                        log_diagnostic(event);
+                        log_diagnostic(config.level.clone(), event);
                     }
 
                     Err(_) => {

@@ -15,6 +15,6 @@ pub fn convert_start(c: &str) -> Result<RuntimeCommands> {
         "tproxy" => Ok(RuntimeCommands::Start(Service::TProxy)),
         "proxy" => Ok(RuntimeCommands::Start(Service::Proxy)),
         "metrics" => Ok(RuntimeCommands::Start(Service::Metrics)),
-        _ => Err(anyhow::anyhow!("unknown service"))
+        _ => Err(anyhow::anyhow!("unknown service")),
     }
 }

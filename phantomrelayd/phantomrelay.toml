@@ -35,3 +35,9 @@ rotate_sec = 60
 [tproxy]
 host = "127.0.0.1"
 port = 9001
+
+[default]
+services = []
+
+[logger]
+level = "INFO"
