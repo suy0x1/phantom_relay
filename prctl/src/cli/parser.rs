@@ -48,14 +48,14 @@ fn parse_debug(arg: &str) -> Result<Debug> {
     match arg {
         "conn" => Ok(Debug::Connection),
 
-        "config" => Ok(Debug::Config), 
+        "config" => Ok(Debug::Config),
 
         "dns" => Ok(Debug::DNS),
 
         "proxy" => Ok(Debug::Proxy),
 
         "route" => Ok(Debug::Route),
-        
+
         _ => Err(anyhow!("unknown debug")),
     }
 }

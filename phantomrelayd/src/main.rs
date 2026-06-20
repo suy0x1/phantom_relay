@@ -21,10 +21,9 @@ async fn main() -> Result<()> {
     let mut sigterm = signal(SignalKind::terminate())?;
 
     tokio::select! {
-        _ = tokio::signal::ctrl_c() => {}
-        _ = sigterm.recv() => {}
+        _ = tokio::signal::ctrl_c() => {runtime.lock().await.shutdown().await?;}
+        _ = sigterm.recv() => {runtime.lock().await.shutdown().await?;}
     }
 
-    runtime.lock().await.shutdown().await?;
     Ok(())
 }
