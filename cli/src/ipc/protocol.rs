@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::runtime::commands::RuntimeCommands;
-use crate::runtime::status::ServiceStatus;
+use crate::runtime::status::Response;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum IPCRequest {
@@ -12,7 +12,7 @@ pub enum IPCRequest {
 pub enum IPCResponse {
     Success { message: String },
 
-    Status { services: Vec<ServiceStatus> },
+    Status { services: Response },
 
     Error { message: String },
 }

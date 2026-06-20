@@ -23,5 +23,7 @@ pub enum Commands {
 
     Status,
 
+    Debug { arg: String },
+
     Shutdown,
 }

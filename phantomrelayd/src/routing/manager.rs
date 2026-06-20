@@ -2,6 +2,7 @@ use dashmap::DashMap;
 
 use crate::routing::connection::{ConnectionKey, ProxyConnection};
 
+#[derive(Debug)]
 pub struct ConnectionManager {
     pub connections: DashMap<ConnectionKey, ProxyConnection>,
 }

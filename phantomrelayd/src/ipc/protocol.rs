@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::runtime::commands::RuntimeCommands;
-use crate::runtime::controller::ServiceStatus;
+use crate::runtime::controller::Response;
 
 /// Request message sent over IPC to the daemon.
 ///
@@ -26,7 +26,7 @@ pub enum IPCResponse {
     /// Status of all services and modes.
     Status {
         /// Current status of each registered service and mode.
-        services: Vec<ServiceStatus>,
+        services: Response,
     },
 
     /// Operation failed with an error.

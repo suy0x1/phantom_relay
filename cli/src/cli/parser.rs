@@ -4,7 +4,7 @@ use crate::{
     cli::args::Commands,
     runtime::{
         commands::RuntimeCommands,
-        service::{Mode, Service},
+        service::{Debug, Mode, Service},
     },
 };
 
@@ -44,6 +44,22 @@ fn parse_mode(mode: &str) -> Result<Mode> {
     }
 }
 
+fn parse_debug(arg: &str) -> Result<Debug> {
+    match arg {
+        "conn" => Ok(Debug::Connection),
+
+        "config" => Ok(Debug::Config), 
+
+        "dns" => Ok(Debug::DNS),
+
+        "proxy" => Ok(Debug::Proxy),
+
+        "route" => Ok(Debug::Route),
+        
+        _ => Err(anyhow!("unknown debug")),
+    }
+}
+
 /// Converts CLI command arguments to runtime command protocol messages.
 pub fn to_runtime_command(cmd: Commands) -> Result<RuntimeCommands> {
     match cmd {
@@ -58,6 +74,8 @@ pub fn to_runtime_command(cmd: Commands) -> Result<RuntimeCommands> {
         Commands::Disable { mode } => Ok(RuntimeCommands::Disable(parse_mode(&mode)?)),
 
         Commands::Status => Ok(RuntimeCommands::Status),
+
+        Commands::Debug { arg } => Ok(RuntimeCommands::Debug(parse_debug(&arg)?)),
 
         Commands::Shutdown => Ok(RuntimeCommands::Shutdown),
     }

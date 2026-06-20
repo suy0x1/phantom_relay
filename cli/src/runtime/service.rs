@@ -18,3 +18,12 @@ pub enum Service {
 pub enum Mode {
     CacheReloader,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Debug {
+    Config,
+    Connection,
+    DNS,
+    Proxy,
+    Route,
+}
