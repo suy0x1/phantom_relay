@@ -17,7 +17,7 @@ use crate::utils::converter::convert_start;
 
 /// Initializes runtime controller with default configs, metrics, and spawns background managers.
 pub async fn startup(bus: Arc<Bus>) -> Result<RuntimeController> {
-    let config = Config::load_or_create("./phantomrelay.toml")?;
+    let config = Config::load_or_create("/etc/phantomrelay/phantomrelay.toml")?;
     let current_route = Arc::new(RwLock::new(RouteContext::dummy()));
     let ctx = RuntimeContext {
         bus: bus.clone(),

@@ -1,4 +1,5 @@
 use std::sync::atomic::{AtomicU64, Ordering};
+use serde::{Serialize, Deserialize};
 
 use crossbeam_utils::CachePadded;
 
@@ -112,7 +113,7 @@ impl Default for Metrics {
 /// A snapshot of metrics at a point in time.
 ///
 /// Captures the state of all counters. Suitable for serialization and reporting.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct MetricsSnapshot {
     pub service_startups: u64,
     pub service_shutdowns: u64,

@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+use crate::metrics::metrics::MetricsSnapshot;
 use crate::runtime::commands::RuntimeCommands;
-use crate::runtime::controller::Response;
+use crate::runtime::controller::ServiceStatus;
 
 /// Request message sent over IPC to the daemon.
 ///
@@ -23,10 +24,46 @@ pub enum IPCResponse {
         message: String,
     },
 
-    /// Status of all services and modes.
+    /// Current status of all managed services.
     Status {
-        /// Current status of each registered service and mode.
-        services: Response,
+        /// Collection of service status entries.
+        services: Vec<ServiceStatus>,
+    },
+
+    /// Current daemon configuration.
+    Config(
+        /// Human-readable configuration output.
+        String,
+    ),
+
+    /// Connection-related information.
+    Conn(
+        /// Human-readable connection status output.
+        String,
+    ),
+
+    /// DNS-related information.
+    DNS(
+        /// Human-readable DNS status output.
+        String,
+    ),
+
+    /// Proxy-related information.
+    Proxy(
+        /// Human-readable proxy status output.
+        String,
+    ),
+
+    /// Routing-related information.
+    Route(
+        /// Human-readable routing status output.
+        String,
+    ),
+
+    /// Snapshot of daemon metrics.
+    Metrics {
+        /// Collected metrics data.
+        data: MetricsSnapshot,
     },
 
     /// Operation failed with an error.

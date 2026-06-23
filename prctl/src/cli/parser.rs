@@ -77,6 +77,8 @@ pub fn to_runtime_command(cmd: Commands) -> Result<RuntimeCommands> {
 
         Commands::Debug { arg } => Ok(RuntimeCommands::Debug(parse_debug(&arg)?)),
 
+        Commands::Metrics => Ok(RuntimeCommands::Metrics),
+
         Commands::Shutdown => Ok(RuntimeCommands::Shutdown),
     }
 }
