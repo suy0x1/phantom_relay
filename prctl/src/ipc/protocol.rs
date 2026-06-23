@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use crate::metrics::metrics::MetricsSnapshot;
 use crate::runtime::commands::RuntimeCommands;
-use crate::runtime::controller::ServiceStatus;
+use crate::runtime::status::ServiceStatus;
+use crate::runtime::metrics::MetricsSnapshot;
 
 /// Request message sent over IPC to the daemon.
 ///

@@ -1,17 +1,19 @@
+version = 1
+
 [collector]
-total_workers = 100
-latency = 3500
-fetch_public = false
-path = "/home/suyash/proxy.txt"
+total_workers = 100  # total number of workers that check proxy health simultaneously
+latency = 3500  # time in ms taken to make a request - don't expect much from public proxies
+fetch_public = false  # if to fetch public proxies
+path = "/path/to/proxy.txt"  # proxy.txt for custom proxies
 
 [dns]
 host = "127.0.0.1"
 port = 9002
-max_parallel_dns_lookups = 100
-cache_cleanup_interval_secs = 30
-cache_refresh_secs = 5
-min_prest_hits = 25
-cache_saturation = false
+max_parallel_dns_lookups = 100  # how many resolvers can run simultaneously
+cache_cleanup_interval_secs = 30  # time to wait till expired DNS entires are checked and removed
+cache_refresh_secs = 5  # once a domain is marked permenant, the amount of time before a resolvers runs again and refreshes the cache with new entry
+min_prest_hits = 255  # the amount of "hits" a domain gets till its refreshed permenantely
+cache_saturation = false  # dns-turbo mode, if enabled, all entires will be refreshed forever
 prewarm_domains = [
     "google.com",
     "chatgpt.com",
@@ -23,7 +25,7 @@ prewarm_domains = [
     "mobile.events.data.microsoft.com",
     "main.vscode-cdn.net",
     "cdn.discordapp.com",
-]
+] # domains to prewarm even if theyre not visited yet
 
 [proxy]
 host = "127.0.0.1"
@@ -35,3 +37,12 @@ rotate_sec = 60
 [tproxy]
 host = "127.0.0.1"
 port = 9001
+
+[default]
+services = ["logger", "metrics", "proxy_collector"]  # minimal default stack, you may remove the proxy_collector but then services will complain about no proxy being marked health
+# DO NOT SWITCH OFF LOGS AND METRICS UNLESS YOU ABSOLUTELY KNOW WHAT YOU'RE DOING
+# A FAILURE WONT BE LOGGED IF THE LOGGER ITSELF DOESN'T RUN
+
+[logger]
+level = "ERROR" # verbose is INFO, error is just errors
+# case MATTERS so ERROR not error

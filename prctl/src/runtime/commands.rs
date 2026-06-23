@@ -13,5 +13,6 @@ pub enum RuntimeCommands {
     Disable(Mode),
     Status,
     Debug(Debug),
+    Metrics,
     Shutdown,
 }

@@ -5,6 +5,7 @@ use crate::debug::{
     dns::{DebugDns, debug_dns},
     proxy::debug_proxy,
 };
+use crate::ipc::protocol::IPCResponse;
 use crate::runtime::service::Debug;
 use crate::subsystems::rotation::manager::RotationEngine;
 use crate::{runtime::context::RuntimeContext, subsystems::network::manager::NetworkManager};
@@ -33,15 +34,7 @@ pub struct ServiceStatus {
     pub is_mode: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub enum Response {
-    Status(Vec<ServiceStatus>),
-    Config(String),
-    Conn(String),
-    DNS(String),
-    Proxy(String),
-    Route(String),
-}
+
 pub struct RuntimeController {
     pub ctx: Arc<RuntimeContext>,
     pub services: DashMap<String, ServiceHandle>,
@@ -179,18 +172,18 @@ impl RuntimeController {
     }
 
     /// Handles runtime commands: start, stop, restart services; enable/disable modes; shutdown.
-    pub async fn handle_commands(&mut self, cmd: RuntimeCommands) -> Result<Response> {
+    pub async fn handle_commands(&mut self, cmd: RuntimeCommands) -> Result<IPCResponse> {
         match cmd {
             RuntimeCommands::Start(service) => match service {
                 Service::Logger => {
                     let x = self.start_service("logger", logger_service(self.ctx.clone()))?;
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
 
                 Service::ProxyCollector => {
                     let x =
                         self.start_service("proxy_collector", collector_service(self.ctx.clone()))?;
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
 
                 Service::DNS => {
@@ -198,20 +191,20 @@ impl RuntimeController {
                         return Err(anyhow!("no proxies marked healthy"));
                     }
                     let x = self.start_service("dns", dns_service(self.ctx.clone()))?;
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
 
                 Service::ProxyRotator => {
                     let x =
                         self.start_service("proxy_rotator", rotator_service(self.ctx.clone()))?;
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
 
                 Service::CachePreloader => {
                     if self.is_running("dns") {
                         let x: Vec<ServiceStatus> = self
                             .start_service("cache_preloader", preload_service(self.ctx.clone()))?;
-                        return Ok(Response::Status(x));
+                        return Ok(IPCResponse::Status{services: x});
                     } else {
                         return Err(anyhow!("DNS service must be running"));
                     }
@@ -224,7 +217,7 @@ impl RuntimeController {
                                 "cache_cleaner",
                                 cleanup_service(self.ctx.clone()),
                             )?;
-                            return Ok(Response::Status(x));
+                            return Ok(IPCResponse::Status{services: x});
                         } else {
                             Err(anyhow!(
                                 "cannot run cache cleaner while dns turbo is active"
@@ -239,7 +232,7 @@ impl RuntimeController {
                     if self.is_running("dns") {
                         let x = self
                             .start_service("cache_refresher", refresh_service(self.ctx.clone()))?;
-                        return Ok(Response::Status(x));
+                        return Ok(IPCResponse::Status{services: x});
                     } else {
                         return Err(anyhow!("DNS service must be running"));
                     }
@@ -250,7 +243,7 @@ impl RuntimeController {
                         return Err(anyhow!("no proxies marked healthy"));
                     }
                     let x = self.start_service("tproxy", tproxy_service(self.ctx.clone()))?;
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
 
                 Service::Proxy => {
@@ -258,64 +251,64 @@ impl RuntimeController {
                         return Err(anyhow!("no proxies marked healthy"));
                     }
                     let x = self.start_service("proxy", proxy_service(self.ctx.clone()))?;
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
 
                 Service::Metrics => {
                     let x = self.start_service("metrics", metrics_service(self.ctx.clone()))?;
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
             },
 
             RuntimeCommands::Stop(service) => match service {
                 Service::Logger => {
                     let x = self.stop_service("logger").await?;
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
 
                 Service::ProxyCollector => {
                     let x = self.stop_service("proxy_collector").await?;
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
 
                 Service::DNS => {
                     let x = self.stop_service("dns").await?;
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
 
                 Service::ProxyRotator => {
                     let x = self.stop_service("proxy_rotator").await?;
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
 
                 Service::CachePreloader => {
                     let x = self.stop_service("cache_preloader").await?;
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
 
                 Service::CacheCleaner => {
                     let x = self.stop_service("cache_cleaner").await?;
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
 
                 Service::CacheRefresher => {
                     let x = self.stop_service("cache_refresher").await?;
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
 
                 Service::TProxy => {
                     let x = self.stop_service("tproxy").await?;
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
 
                 Service::Proxy => {
                     let x = self.stop_service("proxy").await?;
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
 
                 Service::Metrics => {
                     let x = self.stop_service("metrics").await?;
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
             },
 
@@ -324,7 +317,7 @@ impl RuntimeController {
                     self.stop_service("logger").await?;
                     let mut x = self.start_service("logger", logger_service(self.ctx.clone()))?;
                     x[0].name = x[0].name.replace(" started", " restarted");
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
 
                 Service::ProxyCollector => {
@@ -332,7 +325,7 @@ impl RuntimeController {
                     let mut x =
                         self.start_service("proxy_collector", collector_service(self.ctx.clone()))?;
                     x[0].name = x[0].name.replace(" started", " restarted");
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
 
                 Service::DNS => {
@@ -342,7 +335,7 @@ impl RuntimeController {
                     self.stop_service("dns").await?;
                     let mut x = self.start_service("dns", dns_service(self.ctx.clone()))?;
                     x[0].name = x[0].name.replace(" started", " restarted");
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
 
                 Service::ProxyRotator => {
@@ -350,7 +343,7 @@ impl RuntimeController {
                     let mut x =
                         self.start_service("proxy_rotator", rotator_service(self.ctx.clone()))?;
                     x[0].name = x[0].name.replace(" started", " restarted");
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
 
                 Service::CachePreloader => {
@@ -359,7 +352,7 @@ impl RuntimeController {
                         let mut x = self
                             .start_service("cache_preloader", preload_service(self.ctx.clone()))?;
                         x[0].name = x[0].name.replace(" started", " restarted");
-                        return Ok(Response::Status(x));
+                        return Ok(IPCResponse::Status{services: x});
                     } else {
                         return Err(anyhow!("DNS service must be running"));
                     }
@@ -374,7 +367,7 @@ impl RuntimeController {
                                 cleanup_service(self.ctx.clone()),
                             )?;
                             x[0].name = x[0].name.replace(" started", " restarted");
-                            return Ok(Response::Status(x));
+                            return Ok(IPCResponse::Status{services: x});
                         } else {
                             return Err(anyhow!(
                                 "cannot run cache cleaner while dns turbo is active"
@@ -391,7 +384,7 @@ impl RuntimeController {
                         let mut x = self
                             .start_service("cache_refresher", refresh_service(self.ctx.clone()))?;
                         x[0].name = x[0].name.replace(" started", " restarted");
-                        return Ok(Response::Status(x));
+                        return Ok(IPCResponse::Status{services: x});
                     } else {
                         return Err(anyhow!("DNS service must be running"));
                     }
@@ -404,7 +397,7 @@ impl RuntimeController {
                     self.stop_service("tproxy").await?;
                     let mut x = self.start_service("tproxy", tproxy_service(self.ctx.clone()))?;
                     x[0].name = x[0].name.replace(" started", " restarted");
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
 
                 Service::Proxy => {
@@ -414,14 +407,14 @@ impl RuntimeController {
                     self.stop_service("proxy").await?;
                     let mut x = self.start_service("proxy", proxy_service(self.ctx.clone()))?;
                     x[0].name = x[0].name.replace(" started", " restarted");
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
 
                 Service::Metrics => {
                     self.stop_service("metrics").await?;
                     let mut x = self.start_service("metrics", metrics_service(self.ctx.clone()))?;
                     x[0].name = x[0].name.replace(" started", " restarted");
-                    return Ok(Response::Status(x));
+                    return Ok(IPCResponse::Status{services: x});
                 }
             },
 
@@ -431,11 +424,11 @@ impl RuntimeController {
                         if !self.services.contains_key("cache_cleaner") {
                             self.ctx.dns_config.lock().await.cache_saturation = true;
                             self.modes.insert("dns-turbo".to_string(), true);
-                            return Ok(Response::Status(vec![ServiceStatus {
+                            return Ok(IPCResponse::Status{services: vec![ServiceStatus {
                                 name: "turbo cache mode".to_string(),
                                 active: true,
                                 is_mode: true,
-                            }]));
+                            }]});
                         } else {
                             return Err(anyhow!(
                                 "cannot enable dns turbo while cache cleaner is running"
@@ -451,17 +444,17 @@ impl RuntimeController {
                 Mode::CacheReloader => {
                     self.ctx.dns_config.lock().await.cache_saturation = false;
                     self.modes.remove(&"dns-turbo".to_string());
-                    return Ok(Response::Status(vec![ServiceStatus {
+                    return Ok(IPCResponse::Status{services: vec![ServiceStatus {
                         name: "turbo cache mode".to_string(),
                         active: false,
                         is_mode: true,
-                    }]));
+                    }]});
                 }
             },
 
             RuntimeCommands::Status => {
                 let res = self.list_services();
-                return Ok(Response::Status(res));
+                return Ok(IPCResponse::Status{services: res});
             }
 
             RuntimeCommands::Debug(d) => match d {
@@ -472,24 +465,33 @@ impl RuntimeController {
                         &self.ctx.tproxy_config,
                         &self.ctx.proxy_config,
                         &self.ctx.collector_config,
-                    ).await;
-                    Ok(Response::Config(debug_config(x)?))
+                    )
+                    .await;
+                    Ok(IPCResponse::Config(debug_config(x)?))
                 }
 
-                Debug::Connection => Ok(Response::Conn(debug_conn(self.ctx.conn_map.clone())?)),
+                Debug::Connection => Ok(IPCResponse::Conn(debug_conn(self.ctx.conn_map.clone())?)),
 
                 Debug::DNS => {
                     let x = DebugDns::new(self.ctx.dns_cache.clone(), self.ctx.inflight.clone());
-                    Ok(Response::DNS(debug_dns(x)?))
+                    Ok(IPCResponse::DNS(debug_dns(x)?))
                 }
 
-                Debug::Proxy => Ok(Response::Proxy(debug_proxy(self.ctx.healthy_proxies.clone())?)),
+                Debug::Proxy => Ok(IPCResponse::Proxy(debug_proxy(
+                    self.ctx.healthy_proxies.clone(),
+                )?)),
 
-                Debug::Route => Ok(Response::Route(debug_route(self.ctx.current_route.clone()).await?)),
+                Debug::Route => Ok(IPCResponse::Route(
+                    debug_route(self.ctx.current_route.clone()).await?,
+                )),
             },
+            RuntimeCommands::Metrics => {
+                let x = self.ctx.metrics.snapshot();
+                return Ok(IPCResponse::Metrics { data: x })
+            }
             RuntimeCommands::Shutdown => {
                 let x = self.shutdown().await?;
-                return Ok(Response::Status(x));
+                return Ok(IPCResponse::Status{services: x});
             }
         }
     }

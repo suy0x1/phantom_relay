@@ -1,6 +1,5 @@
 use anyhow::Result;
 use std::sync::Arc;
-use std::time::SystemTime;
 
 use super::handler::handle_client;
 use crate::config::proxy::ProxyConfig;
@@ -27,7 +26,6 @@ pub async fn start_socks5_server(
     _ = bus.emit_lifecycle(LifecycleEvent::ServiceStartup {
         service_name: "SOCKS5 Proxy Server".to_string(),
         port: config.port,
-        timestamp: SystemTime::now(),
     });
 
     loop {
@@ -37,7 +35,7 @@ pub async fn start_socks5_server(
                 _ = bus.emit_lifecycle(LifecycleEvent::ServiceShutdown {
                     service_name: "SOCKS5 Proxy Server".to_string(),
                     port: config.port,
-                    timestamp: SystemTime::now(),
+
                 });
                 break;
             }
@@ -61,7 +59,7 @@ pub async fn start_socks5_server(
                     {
                         _ = bus.emit_diagnostic(DiagnosticEvent::Error {
                             err: format!("{}", e),
-                            timestamp: SystemTime::now(),
+
                         });
                     }
                 });

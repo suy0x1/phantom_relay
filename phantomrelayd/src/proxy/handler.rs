@@ -2,7 +2,6 @@ use anyhow::Result;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use std::time::SystemTime;
 use tokio::io::copy_bidirectional;
 use tokio::net::TcpStream;
 
@@ -53,7 +52,6 @@ pub async fn handle_client(
         port: addr.port(),
         proxy: conn.host.parse()?,
         proxy_port: conn.port,
-        timestamp: SystemTime::now(),
     })
     .await;
 
@@ -66,7 +64,6 @@ pub async fn handle_client(
         port: addr.port(),
         proxy: conn.host.parse()?,
         proxy_port: conn.port,
-        timestamp: SystemTime::now(),
     })
     .await;
 

@@ -1,7 +1,7 @@
-use std::sync::Arc;
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tokio::sync::Mutex;
-use serde::{Serialize, Deserialize};
 
 use crate::config::{
     collector::CollectorConfig, dns::DNSConfig, proxy::ProxyConfig, rotation::RotationConfig,

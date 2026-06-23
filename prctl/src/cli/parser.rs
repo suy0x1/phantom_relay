@@ -48,14 +48,14 @@ fn parse_debug(arg: &str) -> Result<Debug> {
     match arg {
         "conn" => Ok(Debug::Connection),
 
-        "config" => Ok(Debug::Config), 
+        "config" => Ok(Debug::Config),
 
         "dns" => Ok(Debug::DNS),
 
         "proxy" => Ok(Debug::Proxy),
 
         "route" => Ok(Debug::Route),
-        
+
         _ => Err(anyhow!("unknown debug")),
     }
 }
@@ -76,6 +76,8 @@ pub fn to_runtime_command(cmd: Commands) -> Result<RuntimeCommands> {
         Commands::Status => Ok(RuntimeCommands::Status),
 
         Commands::Debug { arg } => Ok(RuntimeCommands::Debug(parse_debug(&arg)?)),
+
+        Commands::Metrics => Ok(RuntimeCommands::Metrics),
 
         Commands::Shutdown => Ok(RuntimeCommands::Shutdown),
     }

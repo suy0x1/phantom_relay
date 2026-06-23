@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
-#[command(name = "phantomrelayctl")]
+#[command(name = "prctl")]
 #[command(version)]
 #[command(about = "PhantomRelay Control CLI")]
 pub struct Cli {
@@ -24,6 +24,8 @@ pub enum Commands {
     Status,
 
     Debug { arg: String },
+
+    Metrics,
 
     Shutdown,
 }

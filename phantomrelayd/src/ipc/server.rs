@@ -57,7 +57,7 @@ pub async fn start_ipc_server(runtime: Arc<Mutex<RuntimeController>>) -> Result<
                 };
 
                 let response = match result {
-                    Ok(services) => IPCResponse::Status { services },
+                    Ok(res) => res,
 
                     Err(e) => IPCResponse::Error {
                         message: format!("{}", e),

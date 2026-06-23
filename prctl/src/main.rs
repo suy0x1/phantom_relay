@@ -10,7 +10,6 @@ use comfy_table::{Table, presets::UTF8_FULL};
 use crate::{
     cli::{args::Cli, client::send_command, parser::to_runtime_command},
     ipc::protocol::IPCResponse,
-    runtime::status::Response,
 };
 
 fn side_by_side(left: &str, right: &str, gap: usize) -> String {
@@ -69,54 +68,29 @@ async fn main() -> Result<()> {
             let mut has_services = false;
             let mut has_modes = false;
 
-            match services {
-                Response::Status(services) => {
-                    for service in services {
-                        let (icon, state_text) = if service.is_mode {
-                            if service.active {
-                                ("●", "ENABLED")
-                            } else {
-                                ("○", "DISABLED")
-                            }
-                        } else {
-                            if service.active {
-                                ("●", "RUNNING")
-                            } else {
-                                ("○", "INACTIVE")
-                            }
-                        };
-
-                        let row =
-                            vec![format!("{} {}", icon, service.name), state_text.to_string()];
-
-                        if service.is_mode {
-                            has_modes = true;
-                            mode_table.add_row(row);
-                        } else {
-                            has_services = true;
-                            service_table.add_row(row);
-                        }
+            for service in services {
+                let (icon, state_text) = if service.is_mode {
+                    if service.active {
+                        ("●", "ENABLED")
+                    } else {
+                        ("○", "DISABLED")
                     }
-                }
+                } else {
+                    if service.active {
+                        ("●", "RUNNING")
+                    } else {
+                        ("○", "INACTIVE")
+                    }
+                };
 
-                Response::Conn(c) => {
-                    println!("{}", c);
-                }
+                let row = vec![format!("{} {}", icon, service.name), state_text.to_string()];
 
-                Response::Config(c) => {
-                    println!("{}", c);
-                }
-
-                Response::DNS(d) => {
-                    println!("{}", d);
-                }
-
-                Response::Proxy(p) => {
-                    println!("{}", p)
-                }
-
-                Response::Route(r) => {
-                    println!("{}", r)
+                if service.is_mode {
+                    has_modes = true;
+                    mode_table.add_row(row);
+                } else {
+                    has_services = true;
+                    service_table.add_row(row);
                 }
             }
 
@@ -183,6 +157,30 @@ async fn main() -> Result<()> {
                 "hint:".dimmed(),
                 "use `prctl start dns` / `prctl enable dns-turbo`".dimmed()
             );
+        }
+
+        IPCResponse::Config(c) => {
+            println!("{}", c);
+        }
+
+        IPCResponse::Conn(c) => {
+            println!("{}", c);
+        }
+
+        IPCResponse::DNS(d) => {
+            println!("{}", d);
+        }
+
+        IPCResponse::Proxy(p) => {
+            println!("{}", p);
+        }
+
+        IPCResponse::Route(r) => {
+            println!("{}", r);
+        }
+
+        IPCResponse::Metrics { data } => {
+            println!("{:#?}", data);
         }
 
         IPCResponse::Error { message } => {

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use dashmap::DashMap;
 use std::sync::Arc;
-use std::time::{Instant, SystemTime};
+use std::time::Instant;
 use tokio::sync::Mutex;
 use tokio::time::{Duration, interval};
 
@@ -44,7 +44,7 @@ pub async fn start_cache_cleanup(
 
                 _ = bus.emit_lifecycle(LifecycleEvent::DNSCacheCleanup {
                     entries_cleaned: discarded,
-                    timestamp: SystemTime::now(),
+
                 });
 
             }

@@ -12,7 +12,7 @@ use dashmap::DashMap;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Instant;
-use std::time::SystemTime;
+
 use tokio::sync::RwLock;
 use tokio::sync::{Mutex, Notify};
 use tokio::time::{Duration, interval};
@@ -29,7 +29,6 @@ pub async fn start_cache_refresh(
 ) -> Result<()> {
     _ = bus.emit_lifecycle(LifecycleEvent::TaskStartup {
         task_name: "DNS Cache Refresher".to_string(),
-        timestamp: SystemTime::now(),
     });
     let (cache_ref_sec, cs, mph, pd) = {
         let cfg = config.lock().await;
@@ -49,7 +48,7 @@ pub async fn start_cache_refresh(
             _ = cancel.cancelled() => {
                 _ = bus.emit_lifecycle(LifecycleEvent::TaskShutdown {
                     task_name: "DNS Cache Refresher".to_string(),
-                    timestamp: SystemTime::now(),
+
                 });
                 break;
             }

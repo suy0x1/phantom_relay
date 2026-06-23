@@ -1,6 +1,7 @@
 use anyhow::Result;
 use phantomrelayd::monitor::bus::Bus;
 use std::sync::Arc;
+use tokio::signal::unix::{SignalKind, signal};
 use tokio::sync::Mutex;
 
 use phantomrelayd::ipc::server::start_ipc_server;
@@ -17,8 +18,12 @@ async fn main() -> Result<()> {
         let _ = start_ipc_server(ipc_runtime).await;
     });
 
-    tokio::signal::ctrl_c().await?;
+    let mut sigterm = signal(SignalKind::terminate())?;
 
-    runtime.lock().await.shutdown().await?;
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => {runtime.lock().await.shutdown().await?;}
+        _ = sigterm.recv() => {runtime.lock().await.shutdown().await?;}
+    }
+
     Ok(())
 }

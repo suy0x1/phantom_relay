@@ -13,14 +13,16 @@ use crate::routing::manager::ConnectionManager;
 use crate::runtime::controller::RuntimeController;
 use crate::subsystems::rotation::manager::RotationEngine;
 use crate::subsystems::rotation::route::RouteContext;
+use crate::utils::converter::convert_start;
 
 /// Initializes runtime controller with default configs, metrics, and spawns background managers.
 pub async fn startup(bus: Arc<Bus>) -> Result<RuntimeController> {
-    let config = Config::load_or_create("./phantomrelay.toml")?;
+    let config = Config::load_or_create("/etc/phantomrelay/phantomrelay.toml")?;
     let current_route = Arc::new(RwLock::new(RouteContext::dummy()));
     let ctx = RuntimeContext {
         bus: bus.clone(),
         metrics: Arc::new(Metrics::default()),
+        logger_config: Arc::new(config.logger),
         rotation_config: Arc::new(config.rotation),
         dns_config: Arc::new(Mutex::new(config.dns)),
         tproxy_config: Arc::new(config.tproxy),
@@ -38,7 +40,7 @@ pub async fn startup(bus: Arc<Bus>) -> Result<RuntimeController> {
         cursor: AtomicUsize::new(0),
     });
 
-    let runtime = RuntimeController::new(ctx, rotation_engine);
+    let mut runtime = RuntimeController::new(ctx, rotation_engine);
     runtime
         .networkmanager
         .clone()
@@ -46,6 +48,11 @@ pub async fn startup(bus: Arc<Bus>) -> Result<RuntimeController> {
     runtime
         .rotation_engine
         .start_rotation_engine(runtime.rotation_engine.clone(), runtime.ctx.clone());
+
+    let default_services = config.default.services.clone();
+    for i in default_services {
+        runtime.handle_commands(convert_start(&i)?).await?;
+    }
 
     Ok(runtime)
 }

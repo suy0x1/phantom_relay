@@ -8,7 +8,7 @@ use dashmap::DashMap;
 use reqwest::Client;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::SystemTime;
+
 use tokio::sync::RwLock;
 
 pub struct RotationEngine {
@@ -57,12 +57,18 @@ impl RotationEngine {
                         ctx.healthy_proxies
                             .remove(&ctx.current_route.read().await.proxy);
                         match engine.rotate(ctx.healthy_proxies.clone()).await {
-                            Ok(_) => Ok(()),
-                            Err(e) => {
-                                _ = ctx.bus.emit_diagnostic(DiagnosticEvent::Error {
-                                    err: e.to_string(),
-                                    timestamp: SystemTime::now(),
+                            Ok(_) => {
+                                ctx.dns_cache.clear();
+                                ctx.inflight.clear();
+                                _ = ctx.bus.emit_diagnostic(DiagnosticEvent::Info {
+                                    content: "cleared DNS cache after rotation".to_string(),
                                 });
+                                Ok(())
+                            }
+                            Err(e) => {
+                                _ = ctx
+                                    .bus
+                                    .emit_diagnostic(DiagnosticEvent::Error { err: e.to_string() });
                                 Ok(())
                             }
                         }

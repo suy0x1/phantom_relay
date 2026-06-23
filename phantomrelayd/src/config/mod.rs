@@ -1,7 +1,11 @@
 /// Configuration for the collector subsystem.
 pub mod collector;
+/// Configuration for the default state
+pub mod defaultstate;
 /// Configuration for the DNS subsystem.
 pub mod dns;
+/// Configuration for the logger
+pub mod logger;
 /// Configuration for the proxy subsystem.
 pub mod proxy;
 /// Configuration for the rotation subsystem.
@@ -14,7 +18,9 @@ use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 
 use collector::CollectorConfig;
+use defaultstate::DefaultState;
 use dns::DNSConfig;
+use logger::LoggerConfig;
 use proxy::ProxyConfig;
 use rotation::RotationConfig;
 use tproxy::TProxyConfig;
@@ -31,6 +37,8 @@ pub struct Config {
     pub proxy: ProxyConfig,
     pub rotation: RotationConfig,
     pub tproxy: TProxyConfig,
+    pub default: DefaultState,
+    pub logger: LoggerConfig,
 }
 
 impl Config {

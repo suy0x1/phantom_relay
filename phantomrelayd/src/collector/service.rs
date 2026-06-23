@@ -14,7 +14,7 @@ use super::health::get_healthy_proxies;
 use anyhow::Result;
 use dashmap::DashMap;
 use reqwest::Client;
-use std::time::SystemTime;
+
 use std::{sync::Arc, time::Duration};
 use tokio::{
     sync::Mutex,
@@ -67,7 +67,6 @@ pub async fn collect_healthy_proxy(
 ) -> Result<()> {
     _ = bus.emit_lifecycle(LifecycleEvent::TaskStartup {
         task_name: "proxy_collector".to_string(),
-        timestamp: SystemTime::now(),
     });
 
     let mut ticker = interval(Duration::from_mins(45));
@@ -77,7 +76,7 @@ pub async fn collect_healthy_proxy(
             _ = cancel.cancelled() => {
                 _ = bus.emit_lifecycle(LifecycleEvent::TaskShutdown {
                     task_name: "proxy_collector".to_string(),
-                    timestamp: SystemTime::now(),
+
                 });
 
                 break;
@@ -93,7 +92,7 @@ pub async fn collect_healthy_proxy(
                         Err(e) => {
                             _ = bus.emit_diagnostic(DiagnosticEvent::Error {
                                 err: format!("{:#?}", e),
-                                timestamp: SystemTime::now(),
+
                             });
 
                             continue;

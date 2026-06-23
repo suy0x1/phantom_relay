@@ -10,7 +10,7 @@ use crate::subsystems::rotation::route::RouteContext;
 use crate::tproxy::relay::handle_connection;
 use anyhow::Result;
 use std::sync::Arc;
-use std::time::SystemTime;
+
 use tokio::net::TcpListener;
 use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
@@ -30,22 +30,16 @@ pub async fn start_listener(
     _ = bus.emit_lifecycle(LifecycleEvent::ServiceStartup {
         service_name: "TCP Proxy Server".to_string(),
         port: config.port,
-        timestamp: SystemTime::now(),
     });
 
-    bus.emit_critical(CriticalEvent::EnableCapability {
-        cap: QUICBlocking,
-        timestamp: SystemTime::now(),
-    })?;
+    bus.emit_critical(CriticalEvent::EnableCapability { cap: QUICBlocking })?;
 
     bus.emit_critical(CriticalEvent::EnableCapability {
         cap: LocalhostBypass,
-        timestamp: SystemTime::now(),
     })?;
 
     bus.emit_critical(CriticalEvent::EnableCapability {
         cap: TransparentProxy,
-        timestamp: SystemTime::now(),
     })?;
 
     loop {
@@ -53,20 +47,20 @@ pub async fn start_listener(
             _ = cancel.cancelled() => {
                 bus.emit_critical(CriticalEvent::DisableCapability {
                     cap: TransparentProxy,
-                    timestamp: SystemTime::now(),
+
                 })?;
                 bus.emit_critical(CriticalEvent::DisableCapability {
                     cap: QUICBlocking,
-                    timestamp: SystemTime::now(),
+
                 })?;
                 bus.emit_critical(CriticalEvent::DisableCapability {
                     cap: LocalhostBypass,
-                    timestamp: SystemTime::now(),
+
                 })?;
                 _ = bus.emit_lifecycle(LifecycleEvent::ServiceShutdown {
                     service_name: "TCP Proxy Server".to_string(),
                     port: config.port,
-                    timestamp: SystemTime::now(),
+
                 });
                 break;
             }
@@ -88,7 +82,7 @@ pub async fn start_listener(
                     {
                         _ = bus_clone.emit_diagnostic(DiagnosticEvent::Error {
                             err: format!("{}", e),
-                            timestamp: SystemTime::now(),
+
                         });
                     }
                 });

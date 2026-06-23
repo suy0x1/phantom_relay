@@ -6,6 +6,7 @@ use tokio::sync::{Mutex, Notify};
 use crate::collector::manager::HealthyProxy;
 use crate::config::collector::CollectorConfig;
 use crate::config::dns::DNSConfig;
+use crate::config::logger::LoggerConfig;
 use crate::config::proxy::ProxyConfig;
 use crate::config::rotation::RotationConfig;
 use crate::config::tproxy::TProxyConfig;
@@ -19,6 +20,7 @@ use tokio::sync::RwLock;
 pub struct RuntimeContext {
     pub bus: Arc<Bus>,
     pub metrics: Arc<Metrics>,
+    pub logger_config: Arc<LoggerConfig>,
     pub rotation_config: Arc<RotationConfig>,
     pub dns_config: Arc<Mutex<DNSConfig>>,
     pub tproxy_config: Arc<TProxyConfig>,
