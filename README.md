@@ -426,4 +426,3 @@ See the LICENSE file in the repository root.
 ## Further Reading
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — Runtime architecture and subsystem design
-- [CONFIGURATION.md](./CONFIGURATION.md) — Complete configuration reference
